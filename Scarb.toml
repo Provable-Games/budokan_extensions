@@ -22,3 +22,5 @@ test = "snforge test"
 [[target.starknet-contract]]
 sierra = true
 casm = true
+
+[lib]
