@@ -47,7 +47,7 @@ fn test_valid_entry_with_token_ownership() {
     assert(balance == 1, 'Player should own 1 token');
 
     // Test that the player can enter
-    let can_enter = entry_validator.valid_entry(player, Option::None);
+    let can_enter = entry_validator.valid_entry(player, array![].span());
     assert(can_enter, 'Player with token should enter');
 }
 
@@ -68,7 +68,7 @@ fn test_invalid_entry_without_token_ownership() {
     assert(balance == 0, 'Player should own 0 tokens');
 
     // Test that the player cannot enter
-    let can_enter = entry_validator.valid_entry(player, Option::None);
+    let can_enter = entry_validator.valid_entry(player, array![].span());
     assert(!can_enter, 'No token: cannot enter');
 }
 
@@ -95,7 +95,7 @@ fn test_valid_entry_with_multiple_tokens() {
     assert(balance == 3, 'Player should own 3 tokens');
 
     // Test that the player can enter
-    let can_enter = entry_validator.valid_entry(player, Option::None);
+    let can_enter = entry_validator.valid_entry(player, array![].span());
     assert(can_enter, 'Player with tokens should enter');
 }
 
@@ -117,11 +117,11 @@ fn test_entry_status_changes_after_transfer() {
     erc721_public.mint(player1, 1);
 
     // Verify player1 can enter
-    let can_enter = entry_validator.valid_entry(player1, Option::None);
+    let can_enter = entry_validator.valid_entry(player1, array![].span());
     assert(can_enter, 'Player1 should enter initially');
 
     // Verify player2 cannot enter
-    let can_enter = entry_validator.valid_entry(player2, Option::None);
+    let can_enter = entry_validator.valid_entry(player2, array![].span());
     assert(!can_enter, 'Player2 no token initially');
 
     // Transfer token from player1 to player2
@@ -130,11 +130,11 @@ fn test_entry_status_changes_after_transfer() {
     snforge_std::stop_cheat_caller_address(erc721.contract_address);
 
     // Verify player1 can no longer enter
-    let can_enter = entry_validator.valid_entry(player1, Option::None);
+    let can_enter = entry_validator.valid_entry(player1, array![].span());
     assert(!can_enter, 'Player1 no token after xfer');
 
     // Verify player2 can now enter
-    let can_enter = entry_validator.valid_entry(player2, Option::None);
+    let can_enter = entry_validator.valid_entry(player2, array![].span());
     assert(can_enter, 'Player2 can enter after xfer');
 }
 
@@ -172,12 +172,12 @@ fn test_multiple_players_with_different_ownership() {
     erc721_public.mint(player3, 2);
 
     // Test entry validation for all players
-    let can_enter_p1 = entry_validator.valid_entry(player1, Option::None);
+    let can_enter_p1 = entry_validator.valid_entry(player1, array![].span());
     assert(can_enter_p1, 'Player1 should enter');
 
-    let can_enter_p2 = entry_validator.valid_entry(player2, Option::None);
+    let can_enter_p2 = entry_validator.valid_entry(player2, array![].span());
     assert(!can_enter_p2, 'Player2 should not enter');
 
-    let can_enter_p3 = entry_validator.valid_entry(player3, Option::None);
+    let can_enter_p3 = entry_validator.valid_entry(player3, array![].span());
     assert(can_enter_p3, 'Player3 should enter');
 }

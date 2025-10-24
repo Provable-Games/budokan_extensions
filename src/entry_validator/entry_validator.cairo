@@ -3,7 +3,7 @@
 //
 #[starknet::component]
 pub mod EntryValidatorComponent {
-    use super::super::interface::{IEntryValidator, IENTRY_VALIDATOR_ID, QualificationProof};
+    use super::super::interface::{IEntryValidator, IENTRY_VALIDATOR_ID};
     use starknet::ContractAddress;
 
     use openzeppelin_introspection::src5::SRC5Component;
@@ -20,7 +20,7 @@ pub mod EntryValidatorComponent {
         fn validate_entry(
             self: @TContractState,
             player_address: ContractAddress,
-            qualification_proof: Option<QualificationProof>,
+            qualification: Span<felt252>,
         ) -> bool;
     }
 
@@ -32,10 +32,10 @@ pub mod EntryValidatorComponent {
         +Drop<TContractState>,
     > of IEntryValidator<ComponentState<TContractState>> {
         fn valid_entry(
-            self: @ComponentState<TContractState>, player_address: ContractAddress, qualification_proof: Option<QualificationProof>
+            self: @ComponentState<TContractState>, player_address: ContractAddress, qualification: Span<felt252>
         ) -> bool {
             let state = self.get_contract();
-            Validator::validate_entry(state, player_address, qualification_proof)
+            Validator::validate_entry(state, player_address, qualification)
         }
     }
 

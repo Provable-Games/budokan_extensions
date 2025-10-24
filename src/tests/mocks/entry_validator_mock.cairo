@@ -1,5 +1,4 @@
 use starknet::{ContractAddress};
-use budokan_extensions::entry_validator::interface::QualificationProof;
 use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
 use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
 use openzeppelin_introspection::src5::SRC5Component;
@@ -13,7 +12,6 @@ pub trait IEntryValidatorMock<TState> {
 #[starknet::contract]
 pub mod entry_validator_mock {
     use starknet::ContractAddress;
-    use budokan_extensions::entry_validator::interface::QualificationProof;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
     use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
