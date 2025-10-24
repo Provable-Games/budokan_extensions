@@ -26,6 +26,9 @@ pub mod entry_validator_mock {
     impl EntryValidatorImpl = EntryValidatorComponent::EntryValidatorImpl<ContractState>;
     impl EntryValidatorInternalImpl = EntryValidatorComponent::InternalImpl<ContractState>;
 
+    #[abi(embed_v0)]
+    impl SRC5Impl = SRC5Component::SRC5Impl<ContractState>;
+
     #[storage]
     struct Storage {
         #[substorage(v0)]
@@ -55,7 +58,7 @@ pub mod entry_validator_mock {
         fn validate_entry(
             self: @ContractState,
             player_address: ContractAddress,
-            qualification_proof: Option<QualificationProof>,
+            qualification: Span<felt252>,
         ) -> bool {
             let erc721_address = self.erc721_address.read();
             let erc721 = IERC721Dispatcher { contract_address: erc721_address };
