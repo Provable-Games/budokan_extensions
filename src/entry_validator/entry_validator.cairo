@@ -17,15 +17,9 @@ pub mod EntryValidatorComponent {
     pub enum Event {}
 
     pub trait EntryValidator<TContractState> {
-        fn add_config(
-            ref self: TContractState,
-            tournament_id: u64,
-            config: Span<felt252>
-        );
+        fn add_config(ref self: TContractState, tournament_id: u64, config: Span<felt252>);
         fn validate_entry(
-            self: @TContractState,
-            player_address: ContractAddress,
-            qualification: Span<felt252>,
+            self: @TContractState, player_address: ContractAddress, qualification: Span<felt252>,
         ) -> bool;
     }
 
@@ -37,16 +31,16 @@ pub mod EntryValidatorComponent {
         +Drop<TContractState>,
     > of IEntryValidator<ComponentState<TContractState>> {
         fn add_config(
-            ref self: ComponentState<TContractState>,
-            tournament_id: u64,
-            config: Span<felt252>
+            ref self: ComponentState<TContractState>, tournament_id: u64, config: Span<felt252>,
         ) {
             let mut state = self.get_contract_mut();
             Validator::add_config(ref state, tournament_id, config)
         }
 
         fn valid_entry(
-            self: @ComponentState<TContractState>, player_address: ContractAddress, qualification: Span<felt252>
+            self: @ComponentState<TContractState>,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
         ) -> bool {
             let state = self.get_contract();
             Validator::validate_entry(state, player_address, qualification)

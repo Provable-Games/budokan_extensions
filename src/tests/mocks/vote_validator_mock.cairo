@@ -16,13 +16,16 @@ pub mod entry_validator_mock {
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
     use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
     use openzeppelin_introspection::src5::SRC5Component;
-    use openzeppelin_governance::governor::interface::{IGovernorDispatcher, IGovernorDispatcherTrait};
+    use openzeppelin_governance::governor::interface::{
+        IGovernorDispatcher, IGovernorDispatcherTrait,
+    };
 
     component!(path: EntryValidatorComponent, storage: entry_validator, event: EntryValidatorEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
 
     #[abi(embed_v0)]
-    impl EntryValidatorImpl = EntryValidatorComponent::EntryValidatorImpl<ContractState>;
+    impl EntryValidatorImpl =
+        EntryValidatorComponent::EntryValidatorImpl<ContractState>;
     impl EntryValidatorInternalImpl = EntryValidatorComponent::InternalImpl<ContractState>;
 
     #[abi(embed_v0)]
@@ -35,7 +38,7 @@ pub mod entry_validator_mock {
         #[substorage(v0)]
         src5: SRC5Component::Storage,
         governor_address: ContractAddress,
-        votes_threshold: u256
+        votes_threshold: u256,
     }
 
     #[event]
@@ -48,7 +51,9 @@ pub mod entry_validator_mock {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, governor_address: ContractAddress, votes_threshold: u256) {
+    fn constructor(
+        ref self: ContractState, governor_address: ContractAddress, votes_threshold: u256,
+    ) {
         self.entry_validator.initializer();
         self.governor_address.write(governor_address);
         self.votes_threshold.write(votes_threshold);
@@ -56,19 +61,12 @@ pub mod entry_validator_mock {
 
     // Implement the EntryValidator trait for the contract
     impl EntryValidatorImplInternal of EntryValidator<ContractState> {
-        fn add_config(
-            ref self: ContractState,
-            tournament_id: u64,
-            config: Span<felt252>
-        ) {
-            // Vote validator uses constructor params, doesn't need dynamic config
-            // This is a no-op
+        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {// Vote validator uses constructor params, doesn't need dynamic config
+        // This is a no-op
         }
 
         fn validate_entry(
-            self: @ContractState,
-            player_address: ContractAddress,
-            qualification: Span<felt252>,
+            self: @ContractState, player_address: ContractAddress, qualification: Span<felt252>,
         ) -> bool {
             let proposal_id = *qualification.at(0);
             let governor_address = self.governor_address.read();

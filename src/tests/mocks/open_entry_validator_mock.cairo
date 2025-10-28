@@ -14,7 +14,8 @@ pub mod open_entry_validator_mock {
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
 
     #[abi(embed_v0)]
-    impl EntryValidatorImpl = EntryValidatorComponent::EntryValidatorImpl<ContractState>;
+    impl EntryValidatorImpl =
+        EntryValidatorComponent::EntryValidatorImpl<ContractState>;
     impl EntryValidatorInternalImpl = EntryValidatorComponent::InternalImpl<ContractState>;
 
     #[abi(embed_v0)]
@@ -44,19 +45,12 @@ pub mod open_entry_validator_mock {
 
     // Implement the EntryValidator trait - always returns true (open to everyone)
     impl OpenEntryValidatorImpl of EntryValidator<ContractState> {
-        fn add_config(
-            ref self: ContractState,
-            tournament_id: u64,
-            config: Span<felt252>
-        ) {
-            // Open validator doesn't need configuration
-            // This is a no-op
+        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {// Open validator doesn't need configuration
+        // This is a no-op
         }
 
         fn validate_entry(
-            self: @ContractState,
-            player_address: ContractAddress,
-            qualification: Span<felt252>,
+            self: @ContractState, player_address: ContractAddress, qualification: Span<felt252>,
         ) -> bool {
             // Open validator: everyone can enter
             true

@@ -2,14 +2,14 @@ use starknet::ContractAddress;
 use snforge_std::{declare, ContractClassTrait, DeclareResultTrait};
 
 use budokan_extensions::tests::mocks::erc721_mock::{
-    IERC721MockDispatcher, IERC721MockDispatcherTrait,
-    IERC721MockPublicDispatcher, IERC721MockPublicDispatcherTrait
+    IERC721MockDispatcher, IERC721MockDispatcherTrait, IERC721MockPublicDispatcher,
+    IERC721MockPublicDispatcherTrait,
 };
 use budokan_extensions::tests::mocks::entry_validator_mock::{
-    IEntryValidatorMockDispatcher, IEntryValidatorMockDispatcherTrait
+    IEntryValidatorMockDispatcher, IEntryValidatorMockDispatcherTrait,
 };
 use budokan_extensions::entry_validator::interface::{
-    IEntryValidatorDispatcher, IEntryValidatorDispatcherTrait
+    IEntryValidatorDispatcher, IEntryValidatorDispatcherTrait,
 };
 
 fn deploy_erc721() -> IERC721MockDispatcher {
@@ -24,7 +24,9 @@ fn deploy_entry_validator() -> ContractAddress {
     contract_address
 }
 
-fn configure_entry_validator(validator_address: ContractAddress, tournament_id: u64, erc721_address: ContractAddress) {
+fn configure_entry_validator(
+    validator_address: ContractAddress, tournament_id: u64, erc721_address: ContractAddress,
+) {
     let validator = IEntryValidatorDispatcher { contract_address: validator_address };
     let mut config = array![erc721_address.into()];
     validator.add_config(tournament_id, config.span());
@@ -172,7 +174,9 @@ fn test_entry_validator_stores_correct_erc721_address() {
     let tournament_id: u64 = 1;
     let entry_validator_address = deploy_entry_validator();
     configure_entry_validator(entry_validator_address, tournament_id, erc721.contract_address);
-    let entry_validator_mock = IEntryValidatorMockDispatcher { contract_address: entry_validator_address };
+    let entry_validator_mock = IEntryValidatorMockDispatcher {
+        contract_address: entry_validator_address,
+    };
 
     // Verify the entry validator stores the correct ERC721 address for this tournament
     let stored_address = entry_validator_mock.get_tournament_erc721_address(tournament_id);
@@ -303,7 +307,8 @@ fn test_compare_open_vs_token_gated_validators() {
     assert(can_enter_gated_with, 'Gated: with token enters');
 
     let qualification = array![tournament_id.into()];
-    let can_enter_gated_without = token_gated.valid_entry(player_without_token, qualification.span());
+    let can_enter_gated_without = token_gated
+        .valid_entry(player_without_token, qualification.span());
     assert(!can_enter_gated_without, 'Gated: without token blocked');
 
     // Test open validator - both should enter (doesn't need tournament_id)

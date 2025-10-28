@@ -24,7 +24,8 @@ pub mod entry_validator_mock {
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
 
     #[abi(embed_v0)]
-    impl EntryValidatorImpl = EntryValidatorComponent::EntryValidatorImpl<ContractState>;
+    impl EntryValidatorImpl =
+        EntryValidatorComponent::EntryValidatorImpl<ContractState>;
     impl EntryValidatorInternalImpl = EntryValidatorComponent::InternalImpl<ContractState>;
 
     #[abi(embed_v0)]
@@ -36,7 +37,7 @@ pub mod entry_validator_mock {
         entry_validator: EntryValidatorComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
-        tournament_erc721_address: Map<u64, ContractAddress>
+        tournament_erc721_address: Map<u64, ContractAddress>,
     }
 
     #[event]
@@ -55,20 +56,14 @@ pub mod entry_validator_mock {
 
     // Implement the EntryValidator trait for the contract
     impl EntryValidatorImplInternal of EntryValidator<ContractState> {
-        fn add_config(
-            ref self: ContractState,
-            tournament_id: u64,
-            config: Span<felt252>
-        ) {
+        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {
             // Extract ERC721 address from config (first element)
             let erc721_address: ContractAddress = (*config.at(0)).try_into().unwrap();
             self.tournament_erc721_address.write(tournament_id, erc721_address);
         }
 
         fn validate_entry(
-            self: @ContractState,
-            player_address: ContractAddress,
-            qualification: Span<felt252>,
+            self: @ContractState, player_address: ContractAddress, qualification: Span<felt252>,
         ) -> bool {
             // Extract tournament_id from qualification (first element)
             if qualification.len() == 0 {
@@ -94,7 +89,9 @@ pub mod entry_validator_mock {
     use super::IEntryValidatorMock;
     #[abi(embed_v0)]
     impl EntryValidatorMockImpl of IEntryValidatorMock<ContractState> {
-        fn get_tournament_erc721_address(self: @ContractState, tournament_id: u64) -> ContractAddress {
+        fn get_tournament_erc721_address(
+            self: @ContractState, tournament_id: u64,
+        ) -> ContractAddress {
             self.tournament_erc721_address.read(tournament_id)
         }
     }
