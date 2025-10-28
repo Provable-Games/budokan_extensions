@@ -1,5 +1,4 @@
-use starknet::ContractAddress;
-use starknet::storage::Map;
+use starknet::{ContractAddress};
 use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
 use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
 use openzeppelin_introspection::src5::SRC5Component;
@@ -7,18 +6,20 @@ use openzeppelin_introspection::src5::SRC5Component;
 
 #[starknet::interface]
 pub trait IEntryValidatorMock<TState> {
-    fn get_tournament_erc721_address(self: @TState, tournament_id: u64) -> ContractAddress;
+    fn governor_address(self: @TState) -> ContractAddress;
 }
 
 #[starknet::contract]
 pub mod entry_validator_mock {
     use starknet::ContractAddress;
-    use starknet::storage::Map;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
     use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
     use openzeppelin_introspection::src5::SRC5Component;
-    use starknet::contract_address::contract_address_const;
+    use openzeppelin_governance::governor::interface::{IGovernorDispatcher, IGovernorDispatcherTrait};
+
+    const ABBOT: ContractAddress = 0x04d0bb0a4c40012384e7c419e6eb3c637b28e8363fb66958b60d90505b9c072f;
+    const FDP: ContractAddress = 0x023037703b187f6ff23b883624a0a9f266c9d44671e762048c70100c2f128ab9;
 
     component!(path: EntryValidatorComponent, storage: entry_validator, event: EntryValidatorEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -36,7 +37,6 @@ pub mod entry_validator_mock {
         entry_validator: EntryValidatorComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
-        tournament_erc721_address: Map<u64, ContractAddress>
     }
 
     #[event]
@@ -55,47 +55,25 @@ pub mod entry_validator_mock {
 
     // Implement the EntryValidator trait for the contract
     impl EntryValidatorImplInternal of EntryValidator<ContractState> {
-        fn add_config(
-            ref self: ContractState,
-            tournament_id: u64,
-            config: Span<felt252>
-        ) {
-            // Extract ERC721 address from config (first element)
-            let erc721_address: ContractAddress = (*config.at(0)).try_into().unwrap();
-            self.tournament_erc721_address.write(tournament_id, erc721_address);
-        }
-
         fn validate_entry(
             self: @ContractState,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) -> bool {
-            // Extract tournament_id from qualification (first element)
-            if qualification.len() == 0 {
-                return false;
+            let fdp_address = 
+            let fdp = IFrontendDataProvider { contract_address: FDP };
+            let trove_id: u64 = user_troves.pop_front().unwrap();
+            let trove_info: TroveInfo = fdp.get_trove_info(trove_id);
+
+            let mut deposited_survivor_tokens: u128 = Zero::zero();
+            let mut deposited_survivor_value: Wad = Zero::zero();
+            for trove_asset_info in trove_info.assets {
+                if trove_asset_info.shrine_asset_info.address == SURVIVOR {
+                    deposited_survivor_value = trove_asset_info.value;
+                    deposited_survivor_tokens = trove_asset_info.amount;
+                    break;
+                }
             }
-            let tournament_id: u64 = (*qualification.at(0)).try_into().unwrap();
-            let erc721_address = self.tournament_erc721_address.read(tournament_id);
-
-            // Check if ERC721 address is set for this tournament
-            if erc721_address.is_zero() {
-                return false;
-            }
-
-            let erc721 = IERC721Dispatcher { contract_address: erc721_address };
-
-            // Check if the player owns at least one token
-            let balance = erc721.balance_of(player_address);
-            balance > 0
-        }
-    }
-
-    // Public interface implementation
-    use super::IEntryValidatorMock;
-    #[abi(embed_v0)]
-    impl EntryValidatorMockImpl of IEntryValidatorMock<ContractState> {
-        fn get_tournament_erc721_address(self: @ContractState, tournament_id: u64) -> ContractAddress {
-            self.tournament_erc721_address.read(tournament_id)
         }
     }
 }

@@ -1,2 +1,4 @@
 .snfoundry_cache
 target/
+.env
+./argent_account_sepolia.json
