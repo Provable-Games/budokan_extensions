@@ -1,9 +1,4 @@
 use starknet::ContractAddress;
-use starknet::storage::Map;
-use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
-use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
-use openzeppelin_introspection::src5::SRC5Component;
-
 
 #[starknet::interface]
 pub trait IEntryValidatorMock<TState> {
@@ -12,13 +7,13 @@ pub trait IEntryValidatorMock<TState> {
 
 #[starknet::contract]
 pub mod entry_validator_mock {
+    use core::num::traits::Zero;
     use starknet::ContractAddress;
-    use starknet::storage::Map;
+    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
     use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
     use openzeppelin_introspection::src5::SRC5Component;
-    use starknet::contract_address::contract_address_const;
 
     component!(path: EntryValidatorComponent, storage: entry_validator, event: EntryValidatorEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -63,13 +58,11 @@ pub mod entry_validator_mock {
         }
 
         fn validate_entry(
-            self: @ContractState, player_address: ContractAddress, qualification: Span<felt252>,
+            self: @ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
         ) -> bool {
-            // Extract tournament_id from qualification (first element)
-            if qualification.len() == 0 {
-                return false;
-            }
-            let tournament_id: u64 = (*qualification.at(0)).try_into().unwrap();
             let erc721_address = self.tournament_erc721_address.read(tournament_id);
 
             // Check if ERC721 address is set for this tournament

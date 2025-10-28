@@ -1,8 +1,3 @@
-use starknet::{ContractAddress};
-use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
-use openzeppelin_introspection::src5::SRC5Component;
-
-
 #[starknet::contract]
 pub mod open_entry_validator_mock {
     use starknet::ContractAddress;
@@ -50,9 +45,12 @@ pub mod open_entry_validator_mock {
         }
 
         fn validate_entry(
-            self: @ContractState, player_address: ContractAddress, qualification: Span<felt252>,
+            self: @ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
         ) -> bool {
-            // Open validator: everyone can enter
+            // Open validator: everyone can enter regardless of tournament
             true
         }
     }

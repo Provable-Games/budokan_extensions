@@ -19,7 +19,7 @@ pub mod EntryValidatorComponent {
     pub trait EntryValidator<TContractState> {
         fn add_config(ref self: TContractState, tournament_id: u64, config: Span<felt252>);
         fn validate_entry(
-            self: @TContractState, player_address: ContractAddress, qualification: Span<felt252>,
+            self: @TContractState, tournament_id: u64, player_address: ContractAddress, qualification: Span<felt252>,
         ) -> bool;
     }
 
@@ -39,11 +39,12 @@ pub mod EntryValidatorComponent {
 
         fn valid_entry(
             self: @ComponentState<TContractState>,
+            tournament_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) -> bool {
             let state = self.get_contract();
-            Validator::validate_entry(state, player_address, qualification)
+            Validator::validate_entry(state, tournament_id, player_address, qualification)
         }
     }
 

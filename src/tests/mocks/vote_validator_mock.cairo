@@ -1,8 +1,4 @@
-use starknet::{ContractAddress};
-use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
-use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
-use openzeppelin_introspection::src5::SRC5Component;
-
+use starknet::ContractAddress;
 
 #[starknet::interface]
 pub trait IEntryValidatorMock<TState> {
@@ -12,9 +8,9 @@ pub trait IEntryValidatorMock<TState> {
 #[starknet::contract]
 pub mod entry_validator_mock {
     use starknet::ContractAddress;
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
-    use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
     use openzeppelin_introspection::src5::SRC5Component;
     use openzeppelin_governance::governor::interface::{
         IGovernorDispatcher, IGovernorDispatcherTrait,
@@ -66,8 +62,12 @@ pub mod entry_validator_mock {
         }
 
         fn validate_entry(
-            self: @ContractState, player_address: ContractAddress, qualification: Span<felt252>,
+            self: @ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
         ) -> bool {
+            // Extract proposal_id from qualification
             let proposal_id = *qualification.at(0);
             let governor_address = self.governor_address.read();
             let governor_dispatcher = IGovernorDispatcher { contract_address: governor_address };
