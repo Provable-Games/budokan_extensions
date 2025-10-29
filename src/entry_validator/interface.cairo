@@ -18,4 +18,5 @@ pub trait IEntryValidator<TState> {
         qualification: Span<felt252>,
     ) -> Option<u8>;
     fn add_config(ref self: TState, tournament_id: u64, config: Span<felt252>);
+    fn add_entry(ref self: TState, tournament_id: u64, player_address: ContractAddress, qualification: Span<felt252>);
 }

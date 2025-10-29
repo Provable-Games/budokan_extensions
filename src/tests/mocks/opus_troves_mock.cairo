@@ -25,7 +25,7 @@ pub trait IAbbot<TContractState> {
 
 #[starknet::interface]
 pub trait IEntryValidatorMock<TState> {
-    fn get_trove_asset(self: @TState, tournament_id: u64) -> felt252;
+    fn get_trove_asset(self: @TState, tournament_id: u64) -> ContractAddress;
     fn get_trove_threshold(self: @TState, tournament_id: u64) -> u128;
 }
 
@@ -70,8 +70,10 @@ pub mod opus_troves_validator_mock {
         entry_validator: EntryValidatorComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
-        trove_asset: Map<u64, felt252>,
-        trove_threshold: Map<u64, u128>,
+        tournament_trove_asset: Map<u64, ContractAddress>,
+        tournament_trove_threshold: Map<u64, u128>,
+        tournament_entry_limit: Map<u64, u8>,
+        tournament_entries_per_address: Map<(u64, ContractAddress), u8>,
     }
 
     #[event]
@@ -96,18 +98,13 @@ pub mod opus_troves_validator_mock {
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) -> bool {
+            assert!(qualification.len() == 0, "Opus Entry Validator: Qualification data invalid");
             let abbot = IAbbotDispatcher { contract_address: abbot_address() };
-            let user_troves: Span<u64> = abbot.get_user_trove_ids(player_address);
-
-            // Check if user has any troves
-            if user_troves.len() == 0 {
-                return false;
-            }
-
+            let mut user_troves: Span<u64> = abbot.get_user_trove_ids(player_address);
+            let trove_id: u64 = *user_troves.pop_front().unwrap();
             let fdp = IFrontendDataProviderDispatcher { contract_address: fdp_address() };
-            let trove_id: u64 = *user_troves.at(0);
             let trove_info: TroveInfo = fdp.get_trove_info(trove_id);
-            let trove_asset_felt = self.trove_asset.read(tournament_id);
+            let trove_asset_felt = self.tournament_trove_asset.read(tournament_id);
             let trove_asset: ContractAddress = trove_asset_felt.try_into().unwrap();
 
             let mut deposited_value: Wad = Zero::zero();
@@ -121,7 +118,7 @@ pub mod opus_troves_validator_mock {
             }
 
             // Check if deposited value meets the threshold
-            let threshold = self.trove_threshold.read(tournament_id);
+            let threshold = self.tournament_trove_threshold.read(tournament_id);
             let threshold_wad: Wad = threshold.into();
             deposited_value >= threshold_wad
         }
@@ -132,17 +129,36 @@ pub mod opus_troves_validator_mock {
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) -> Option<u8> {
-            // Open validator: unlimited entries
-            Option::None
+            let entry_limit = self.tournament_entry_limit.read(tournament_id);
+            if entry_limit == 0 {
+                return Option::None; // Unlimited entries
+            }
+            let key = (tournament_id, player_address);
+            let current_entries = self.tournament_entries_per_address.read(key);
+            let remaining_entries = entry_limit - current_entries;
+            return Option::Some(remaining_entries);
         }
 
         fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {
             // Extract trove asset address and threshold from config
-            let trove_asset_felt: felt252 = *config.at(0);
+            let trove_asset: ContractAddress = (*config.at(0)).try_into().unwrap();
             let trove_threshold: u128 = (*config.at(1)).try_into().unwrap();
+            let entry_limit: u8 = (*config.at(2)).try_into().unwrap();
 
-            self.trove_asset.write(tournament_id, trove_asset_felt);
-            self.trove_threshold.write(tournament_id, trove_threshold);
+            self.tournament_trove_asset.write(tournament_id, trove_asset);
+            self.tournament_trove_threshold.write(tournament_id, trove_threshold);
+            self.tournament_entry_limit.write(tournament_id, entry_limit);
+        }
+
+        fn add_entry(
+            ref self: ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) {
+            let key = (tournament_id, player_address);
+            let current_entries = self.tournament_entries_per_address.read(key);
+            self.tournament_entries_per_address.write(key, current_entries + 1);
         }
     }
 
@@ -150,12 +166,12 @@ pub mod opus_troves_validator_mock {
     use super::IEntryValidatorMock;
     #[abi(embed_v0)]
     impl EntryValidatorMockImpl of IEntryValidatorMock<ContractState> {
-        fn get_trove_asset(self: @ContractState, tournament_id: u64) -> felt252 {
-            self.trove_asset.read(tournament_id)
+        fn get_trove_asset(self: @ContractState, tournament_id: u64) -> ContractAddress {
+            self.tournament_trove_asset.read(tournament_id)
         }
 
         fn get_trove_threshold(self: @ContractState, tournament_id: u64) -> u128 {
-            self.trove_threshold.read(tournament_id)
+            self.tournament_trove_threshold.read(tournament_id)
         }
     }
 }

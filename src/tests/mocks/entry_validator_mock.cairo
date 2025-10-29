@@ -86,6 +86,15 @@ pub mod entry_validator_mock {
             let erc721_address: ContractAddress = (*config.at(0)).try_into().unwrap();
             self.tournament_erc721_address.write(tournament_id, erc721_address);
         }
+
+        fn add_entry(
+            ref self: ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) {
+            // No specific action needed for this mock on add_entry
+        }
     }
 
     // Public interface implementation

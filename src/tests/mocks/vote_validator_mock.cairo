@@ -30,6 +30,7 @@ pub mod entry_validator_mock {
         proposal_id: Map<u64, felt252>,
         votes_threshold: Map<u64, u256>,
         entry_limit: Map<u64, u8>,
+        tournament_entries_per_address: Map<(u64, ContractAddress), u8>,
     }
 
     #[event]
@@ -71,7 +72,14 @@ pub mod entry_validator_mock {
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) -> Option<u8> {
-            Option::Some(self.entry_limit.read(tournament_id))
+            let entry_limit = self.entry_limit.read(tournament_id);
+            if entry_limit == 0 {
+                return Option::None; // Unlimited entries
+            }
+            let key = (tournament_id, player_address);
+            let current_entries = self.tournament_entries_per_address.read(key);
+            let remaining_entries = entry_limit - current_entries;
+            return Option::Some(remaining_entries);
         }
 
         fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {
@@ -83,6 +91,17 @@ pub mod entry_validator_mock {
             self.proposal_id.write(tournament_id, proposal_id);
             self.votes_threshold.write(tournament_id, votes_threshold);
             self.entry_limit.write(tournament_id, entry_limit);
+        }
+
+        fn add_entry(
+            ref self: ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) {
+            let key = (tournament_id, player_address);
+            let current_entries = self.tournament_entries_per_address.read(key);
+            self.tournament_entries_per_address.write(key, current_entries + 1);
         }
     }
 }
