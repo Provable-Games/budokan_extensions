@@ -1,0 +1,9 @@
+{
+  "network": "sepolia",
+  "timestamp": "2025-10-28T20:34:35Z",
+  "open_entry_validator": {
+    "address": "0x0473da4cef426e7a717e3ba40a63ae55e22c8095fd985429837a8a6173276578",
+    "class_hash": "0x016aac5a4563661729316fb63c27d7406dee26f248658d420dc78171684536bb",
+    "description": "Open entry validator that allows all players to enter without token requirements"
+  }
+}

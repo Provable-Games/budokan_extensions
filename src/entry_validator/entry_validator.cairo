@@ -3,11 +3,10 @@
 //
 #[starknet::component]
 pub mod EntryValidatorComponent {
-    use super::super::interface::{IEntryValidator, IENTRY_VALIDATOR_ID};
-    use starknet::ContractAddress;
-
     use openzeppelin_introspection::src5::SRC5Component;
     use openzeppelin_introspection::src5::SRC5Component::InternalTrait as SRC5InternalTrait;
+    use starknet::ContractAddress;
+    use super::super::interface::{IENTRY_VALIDATOR_ID, IEntryValidator};
 
     #[storage]
     pub struct Storage {}
@@ -17,10 +16,19 @@ pub mod EntryValidatorComponent {
     pub enum Event {}
 
     pub trait EntryValidator<TContractState> {
-        fn add_config(ref self: TContractState, tournament_id: u64, config: Span<felt252>);
         fn validate_entry(
-            self: @TContractState, tournament_id: u64, player_address: ContractAddress, qualification: Span<felt252>,
+            self: @TContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
         ) -> bool;
+        fn entries_left(
+            self: @TContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> Option<u8>;
+        fn add_config(ref self: TContractState, tournament_id: u64, config: Span<felt252>);
     }
 
     #[embeddable_as(EntryValidatorImpl)]
@@ -30,13 +38,6 @@ pub mod EntryValidatorComponent {
         impl Validator: EntryValidator<TContractState>,
         +Drop<TContractState>,
     > of IEntryValidator<ComponentState<TContractState>> {
-        fn add_config(
-            ref self: ComponentState<TContractState>, tournament_id: u64, config: Span<felt252>,
-        ) {
-            let mut state = self.get_contract_mut();
-            Validator::add_config(ref state, tournament_id, config)
-        }
-
         fn valid_entry(
             self: @ComponentState<TContractState>,
             tournament_id: u64,
@@ -45,6 +46,23 @@ pub mod EntryValidatorComponent {
         ) -> bool {
             let state = self.get_contract();
             Validator::validate_entry(state, tournament_id, player_address, qualification)
+        }
+
+        fn entries_left(
+            self: @ComponentState<TContractState>,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> Option<u8> {
+            let state = self.get_contract();
+            Validator::entries_left(state, tournament_id, player_address, qualification)
+        }
+
+        fn add_config(
+            ref self: ComponentState<TContractState>, tournament_id: u64, config: Span<felt252>,
+        ) {
+            let mut state = self.get_contract_mut();
+            Validator::add_config(ref state, tournament_id, config)
         }
     }
 

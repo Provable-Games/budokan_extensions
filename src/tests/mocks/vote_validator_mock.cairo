@@ -1,20 +1,13 @@
-use starknet::ContractAddress;
-
-#[starknet::interface]
-pub trait IEntryValidatorMock<TState> {
-    fn governor_address(self: @TState) -> ContractAddress;
-}
-
 #[starknet::contract]
 pub mod entry_validator_mock {
-    use starknet::ContractAddress;
-    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
-    use openzeppelin_introspection::src5::SRC5Component;
     use openzeppelin_governance::governor::interface::{
         IGovernorDispatcher, IGovernorDispatcherTrait,
     };
+    use openzeppelin_introspection::src5::SRC5Component;
+    use starknet::ContractAddress;
+    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
 
     component!(path: EntryValidatorComponent, storage: entry_validator, event: EntryValidatorEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -33,8 +26,10 @@ pub mod entry_validator_mock {
         entry_validator: EntryValidatorComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
-        governor_address: ContractAddress,
-        votes_threshold: u256,
+        governor_address: Map<u64, ContractAddress>,
+        proposal_id: Map<u64, felt252>,
+        votes_threshold: Map<u64, u256>,
+        entry_limit: Map<u64, u8>,
     }
 
     #[event]
@@ -47,20 +42,12 @@ pub mod entry_validator_mock {
     }
 
     #[constructor]
-    fn constructor(
-        ref self: ContractState, governor_address: ContractAddress, votes_threshold: u256,
-    ) {
+    fn constructor(ref self: ContractState) {
         self.entry_validator.initializer();
-        self.governor_address.write(governor_address);
-        self.votes_threshold.write(votes_threshold);
     }
 
     // Implement the EntryValidator trait for the contract
     impl EntryValidatorImplInternal of EntryValidator<ContractState> {
-        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {// Vote validator uses constructor params, doesn't need dynamic config
-        // This is a no-op
-        }
-
         fn validate_entry(
             self: @ContractState,
             tournament_id: u64,
@@ -69,22 +56,33 @@ pub mod entry_validator_mock {
         ) -> bool {
             // Extract proposal_id from qualification
             let proposal_id = *qualification.at(0);
-            let governor_address = self.governor_address.read();
+            let governor_address = self.governor_address.read(tournament_id);
             let governor_dispatcher = IGovernorDispatcher { contract_address: governor_address };
             let has_voted = governor_dispatcher.has_voted(proposal_id, player_address);
             let proposal_snapshot = governor_dispatcher.proposal_snapshot(proposal_id);
             let vote_count = governor_dispatcher.get_votes(player_address, proposal_snapshot);
-            let votes_meet_threshold = vote_count >= self.votes_threshold.read();
+            let votes_meet_threshold = vote_count >= self.votes_threshold.read(tournament_id);
             has_voted && votes_meet_threshold
         }
-    }
 
-    // Public interface implementation
-    use super::IEntryValidatorMock;
-    #[abi(embed_v0)]
-    impl EntryValidatorMockImpl of IEntryValidatorMock<ContractState> {
-        fn governor_address(self: @ContractState) -> ContractAddress {
-            self.governor_address.read()
+        fn entries_left(
+            self: @ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> Option<u8> {
+            Option::Some(self.entry_limit.read(tournament_id))
+        }
+
+        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {
+            let governor_address: ContractAddress = (*config.at(0)).try_into().unwrap();
+            let proposal_id: felt252 = *config.at(1);
+            let votes_threshold: u256 = (*config.at(2)).try_into().unwrap();
+            let entry_limit: u8 = (*config.at(3)).try_into().unwrap();
+            self.governor_address.write(tournament_id, governor_address);
+            self.proposal_id.write(tournament_id, proposal_id);
+            self.votes_threshold.write(tournament_id, votes_threshold);
+            self.entry_limit.write(tournament_id, entry_limit);
         }
     }
 }

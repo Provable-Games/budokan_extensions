@@ -1,9 +1,9 @@
 #[starknet::contract]
 pub mod open_entry_validator_mock {
-    use starknet::ContractAddress;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
     use openzeppelin_introspection::src5::SRC5Component;
+    use starknet::ContractAddress;
 
     component!(path: EntryValidatorComponent, storage: entry_validator, event: EntryValidatorEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -40,10 +40,6 @@ pub mod open_entry_validator_mock {
 
     // Implement the EntryValidator trait - always returns true (open to everyone)
     impl OpenEntryValidatorImpl of EntryValidator<ContractState> {
-        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {// Open validator doesn't need configuration
-        // This is a no-op
-        }
-
         fn validate_entry(
             self: @ContractState,
             tournament_id: u64,
@@ -52,6 +48,22 @@ pub mod open_entry_validator_mock {
         ) -> bool {
             // Open validator: everyone can enter regardless of tournament
             true
+        }
+
+        fn entries_left(
+            self: @ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> Option<u8> {
+            // Open validator: unlimited entries
+            Option::None
+        }
+
+        fn add_config(
+            ref self: ContractState, tournament_id: u64, config: Span<felt252>,
+        ) { // Open validator doesn't need configuration
+        // This is a no-op
         }
     }
 }

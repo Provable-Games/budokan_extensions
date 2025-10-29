@@ -1,16 +1,15 @@
-use starknet::ContractAddress;
-use snforge_std::{declare, ContractClassTrait, DeclareResultTrait};
-
-use budokan_extensions::tests::mocks::erc721_mock::{
-    IERC721MockDispatcher, IERC721MockDispatcherTrait, IERC721MockPublicDispatcher,
-    IERC721MockPublicDispatcherTrait,
+use budokan_extensions::entry_validator::interface::{
+    IEntryValidatorDispatcher, IEntryValidatorDispatcherTrait,
 };
 use budokan_extensions::tests::mocks::entry_validator_mock::{
     IEntryValidatorMockDispatcher, IEntryValidatorMockDispatcherTrait,
 };
-use budokan_extensions::entry_validator::interface::{
-    IEntryValidatorDispatcher, IEntryValidatorDispatcherTrait,
+use budokan_extensions::tests::mocks::erc721_mock::{
+    IERC721MockDispatcher, IERC721MockDispatcherTrait, IERC721MockPublicDispatcher,
+    IERC721MockPublicDispatcherTrait,
 };
+use snforge_std::{ContractClassTrait, DeclareResultTrait, declare};
+use starknet::ContractAddress;
 
 fn deploy_erc721() -> IERC721MockDispatcher {
     let contract = declare("erc721_mock").unwrap().contract_class();
@@ -221,7 +220,8 @@ fn test_open_validator_allows_entry_without_tokens() {
     // Create a player address without any tokens
     let player: ContractAddress = 0x999.try_into().unwrap();
 
-    // Test that the player can enter even without tokens (tournament_id doesn't matter for open validator)
+    // Test that the player can enter even without tokens (tournament_id doesn't matter for open
+    // validator)
     let can_enter = open_validator.valid_entry(0, player, array![].span());
     assert(can_enter, 'Open: player should enter');
 }
@@ -292,16 +292,19 @@ fn test_compare_open_vs_token_gated_validators() {
     erc721_public.mint(player_with_token, 1);
 
     // Test token-gated validator
-    let can_enter_gated_with = token_gated.valid_entry(tournament_id, player_with_token, array![].span());
+    let can_enter_gated_with = token_gated
+        .valid_entry(tournament_id, player_with_token, array![].span());
     assert(can_enter_gated_with, 'Gated: with token enters');
 
-    let can_enter_gated_without = token_gated.valid_entry(tournament_id, player_without_token, array![].span());
+    let can_enter_gated_without = token_gated
+        .valid_entry(tournament_id, player_without_token, array![].span());
     assert(!can_enter_gated_without, 'Gated: without token blocked');
 
     // Test open validator - both should enter
     let can_enter_open_with = open_validator.valid_entry(0, player_with_token, array![].span());
     assert(can_enter_open_with, 'Open: with token enters');
 
-    let can_enter_open_without = open_validator.valid_entry(0, player_without_token, array![].span());
+    let can_enter_open_without = open_validator
+        .valid_entry(0, player_without_token, array![].span());
     assert(can_enter_open_without, 'Open: without token enters');
 }

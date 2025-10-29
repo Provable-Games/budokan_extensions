@@ -7,13 +7,13 @@ pub trait IEntryValidatorMock<TState> {
 
 #[starknet::contract]
 pub mod entry_validator_mock {
-    use core::num::traits::Zero;
-    use starknet::ContractAddress;
-    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
-    use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
+    use core::num::traits::Zero;
     use openzeppelin_introspection::src5::SRC5Component;
+    use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
+    use starknet::ContractAddress;
+    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
 
     component!(path: EntryValidatorComponent, storage: entry_validator, event: EntryValidatorEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -51,12 +51,6 @@ pub mod entry_validator_mock {
 
     // Implement the EntryValidator trait for the contract
     impl EntryValidatorImplInternal of EntryValidator<ContractState> {
-        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {
-            // Extract ERC721 address from config (first element)
-            let erc721_address: ContractAddress = (*config.at(0)).try_into().unwrap();
-            self.tournament_erc721_address.write(tournament_id, erc721_address);
-        }
-
         fn validate_entry(
             self: @ContractState,
             tournament_id: u64,
@@ -75,6 +69,22 @@ pub mod entry_validator_mock {
             // Check if the player owns at least one token
             let balance = erc721.balance_of(player_address);
             balance > 0
+        }
+
+        fn entries_left(
+            self: @ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> Option<u8> {
+            // For this mock, we assume unlimited entries
+            Option::None
+        }
+
+        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {
+            // Extract ERC721 address from config (first element)
+            let erc721_address: ContractAddress = (*config.at(0)).try_into().unwrap();
+            self.tournament_erc721_address.write(tournament_id, erc721_address);
         }
     }
 

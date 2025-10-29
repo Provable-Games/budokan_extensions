@@ -11,7 +11,10 @@ pub trait IAbbot<TContractState> {
     fn get_trove_asset_balance(self: @TContractState, trove_id: u64, yang: ContractAddress) -> u128;
     // external
     fn open_trove(
-        ref self: TContractState, yang_assets: Span<AssetBalance>, forge_amount: Wad, max_forge_fee_pct: Wad,
+        ref self: TContractState,
+        yang_assets: Span<AssetBalance>,
+        forge_amount: Wad,
+        max_forge_fee_pct: Wad,
     ) -> u64;
     fn close_trove(ref self: TContractState, trove_id: u64);
     fn deposit(ref self: TContractState, trove_id: u64, yang_asset: AssetBalance);
@@ -28,16 +31,18 @@ pub trait IEntryValidatorMock<TState> {
 
 #[starknet::contract]
 pub mod opus_troves_validator_mock {
-    use core::num::traits::Zero;
-    use starknet::ContractAddress;
-    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
+    use core::num::traits::Zero;
     use openzeppelin_introspection::src5::SRC5Component;
+    use opus::periphery::interfaces::{
+        IFrontendDataProviderDispatcher, IFrontendDataProviderDispatcherTrait,
+    };
     use opus::periphery::types::TroveInfo;
-    use super::{IAbbotDispatcher, IAbbotDispatcherTrait};
-    use opus::periphery::interfaces::{IFrontendDataProviderDispatcher, IFrontendDataProviderDispatcherTrait};
+    use starknet::ContractAddress;
+    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
     use wadray::Wad;
+    use super::{IAbbotDispatcher, IAbbotDispatcherTrait};
 
     // Opus mainnet addresses - use try_into for const addresses
     fn abbot_address() -> ContractAddress {
@@ -52,7 +57,8 @@ pub mod opus_troves_validator_mock {
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
 
     #[abi(embed_v0)]
-    impl EntryValidatorImpl = EntryValidatorComponent::EntryValidatorImpl<ContractState>;
+    impl EntryValidatorImpl =
+        EntryValidatorComponent::EntryValidatorImpl<ContractState>;
     impl EntryValidatorInternalImpl = EntryValidatorComponent::InternalImpl<ContractState>;
 
     #[abi(embed_v0)]
@@ -84,19 +90,6 @@ pub mod opus_troves_validator_mock {
 
     // Implement the EntryValidator trait for the contract
     impl EntryValidatorImplInternal of EntryValidator<ContractState> {
-        fn add_config(
-            ref self: ContractState,
-            tournament_id: u64,
-            config: Span<felt252>,
-        ) {
-            // Extract trove asset address and threshold from config
-            let trove_asset_felt: felt252 = *config.at(0);
-            let trove_threshold: u128 = (*config.at(1)).try_into().unwrap();
-
-            self.trove_asset.write(tournament_id, trove_asset_felt);
-            self.trove_threshold.write(tournament_id, trove_threshold);
-        }
-
         fn validate_entry(
             self: @ContractState,
             tournament_id: u64,
@@ -125,12 +118,31 @@ pub mod opus_troves_validator_mock {
                     deposited_value = *trove_asset_info.value;
                     break;
                 }
-            };
+            }
 
             // Check if deposited value meets the threshold
             let threshold = self.trove_threshold.read(tournament_id);
             let threshold_wad: Wad = threshold.into();
             deposited_value >= threshold_wad
+        }
+
+        fn entries_left(
+            self: @ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> Option<u8> {
+            // Open validator: unlimited entries
+            Option::None
+        }
+
+        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {
+            // Extract trove asset address and threshold from config
+            let trove_asset_felt: felt252 = *config.at(0);
+            let trove_threshold: u128 = (*config.at(1)).try_into().unwrap();
+
+            self.trove_asset.write(tournament_id, trove_asset_felt);
+            self.trove_threshold.write(tournament_id, trove_threshold);
         }
     }
 
