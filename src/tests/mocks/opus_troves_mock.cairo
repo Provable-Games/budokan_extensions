@@ -139,11 +139,12 @@ pub mod opus_troves_validator_mock {
             return Option::Some(remaining_entries);
         }
 
-        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {
+        fn add_config(
+            ref self: ContractState, tournament_id: u64, entry_limit: u8, config: Span<felt252>,
+        ) {
             // Extract trove asset address and threshold from config
             let trove_asset: ContractAddress = (*config.at(0)).try_into().unwrap();
             let trove_threshold: u128 = (*config.at(1)).try_into().unwrap();
-            let entry_limit: u8 = (*config.at(2)).try_into().unwrap();
 
             self.tournament_trove_asset.write(tournament_id, trove_asset);
             self.tournament_trove_threshold.write(tournament_id, trove_threshold);

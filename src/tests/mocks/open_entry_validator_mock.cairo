@@ -61,7 +61,7 @@ pub mod open_entry_validator_mock {
         }
 
         fn add_config(
-            ref self: ContractState, tournament_id: u64, config: Span<felt252>,
+            ref self: ContractState, tournament_id: u64, entry_limit: u8, config: Span<felt252>,
         ) { // Open validator doesn't need configuration
         // This is a no-op
         }
@@ -71,9 +71,8 @@ pub mod open_entry_validator_mock {
             tournament_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
-        ) {
-            // Open validator doesn't track entries
-            // This is a no-op
+        ) { // Open validator doesn't track entries
+        // This is a no-op
         }
     }
 }

@@ -24,11 +24,14 @@ fn deploy_entry_validator() -> ContractAddress {
 }
 
 fn configure_entry_validator(
-    validator_address: ContractAddress, tournament_id: u64, erc721_address: ContractAddress,
+    validator_address: ContractAddress,
+    tournament_id: u64,
+    entry_limit: u8,
+    erc721_address: ContractAddress,
 ) {
     let validator = IEntryValidatorDispatcher { contract_address: validator_address };
     let mut config = array![erc721_address.into()];
-    validator.add_config(tournament_id, config.span());
+    validator.add_config(tournament_id, entry_limit, config.span());
 }
 
 fn deploy_open_entry_validator() -> ContractAddress {
@@ -45,7 +48,7 @@ fn test_valid_entry_with_token_ownership() {
     // Deploy and configure entry validator
     let tournament_id: u64 = 1;
     let entry_validator_address = deploy_entry_validator();
-    configure_entry_validator(entry_validator_address, tournament_id, erc721.contract_address);
+    configure_entry_validator(entry_validator_address, tournament_id, 0, erc721.contract_address);
     let entry_validator = IEntryValidatorDispatcher { contract_address: entry_validator_address };
 
     // Create a player address
@@ -72,7 +75,7 @@ fn test_invalid_entry_without_token_ownership() {
     // Deploy and configure entry validator
     let tournament_id: u64 = 1;
     let entry_validator_address = deploy_entry_validator();
-    configure_entry_validator(entry_validator_address, tournament_id, erc721.contract_address);
+    configure_entry_validator(entry_validator_address, tournament_id, 0, erc721.contract_address);
     let entry_validator = IEntryValidatorDispatcher { contract_address: entry_validator_address };
 
     // Create a player address without any tokens
@@ -95,7 +98,7 @@ fn test_valid_entry_with_multiple_tokens() {
     // Deploy and configure entry validator
     let tournament_id: u64 = 1;
     let entry_validator_address = deploy_entry_validator();
-    configure_entry_validator(entry_validator_address, tournament_id, erc721.contract_address);
+    configure_entry_validator(entry_validator_address, tournament_id, 0, erc721.contract_address);
     let entry_validator = IEntryValidatorDispatcher { contract_address: entry_validator_address };
 
     // Create a player address
@@ -124,7 +127,7 @@ fn test_entry_status_changes_after_transfer() {
     // Deploy and configure entry validator
     let tournament_id: u64 = 1;
     let entry_validator_address = deploy_entry_validator();
-    configure_entry_validator(entry_validator_address, tournament_id, erc721.contract_address);
+    configure_entry_validator(entry_validator_address, tournament_id, 0, erc721.contract_address);
     let entry_validator = IEntryValidatorDispatcher { contract_address: entry_validator_address };
 
     // Create player addresses
@@ -165,7 +168,7 @@ fn test_entry_validator_stores_correct_erc721_address() {
     // Deploy and configure entry validator
     let tournament_id: u64 = 1;
     let entry_validator_address = deploy_entry_validator();
-    configure_entry_validator(entry_validator_address, tournament_id, erc721.contract_address);
+    configure_entry_validator(entry_validator_address, tournament_id, 0, erc721.contract_address);
     let entry_validator_mock = IEntryValidatorMockDispatcher {
         contract_address: entry_validator_address,
     };
@@ -183,7 +186,7 @@ fn test_multiple_players_with_different_ownership() {
     // Deploy and configure entry validator
     let tournament_id: u64 = 1;
     let entry_validator_address = deploy_entry_validator();
-    configure_entry_validator(entry_validator_address, tournament_id, erc721.contract_address);
+    configure_entry_validator(entry_validator_address, tournament_id, 0, erc721.contract_address);
     let entry_validator = IEntryValidatorDispatcher { contract_address: entry_validator_address };
 
     // Create multiple player addresses
@@ -277,7 +280,7 @@ fn test_compare_open_vs_token_gated_validators() {
     // Deploy both validators
     let tournament_id: u64 = 1;
     let token_gated_address = deploy_entry_validator();
-    configure_entry_validator(token_gated_address, tournament_id, erc721.contract_address);
+    configure_entry_validator(token_gated_address, tournament_id, 0, erc721.contract_address);
     let token_gated = IEntryValidatorDispatcher { contract_address: token_gated_address };
 
     let open_validator_address = deploy_open_entry_validator();

@@ -81,7 +81,9 @@ pub mod entry_validator_mock {
             Option::None
         }
 
-        fn add_config(ref self: ContractState, tournament_id: u64, config: Span<felt252>) {
+        fn add_config(
+            ref self: ContractState, tournament_id: u64, entry_limit: u8, config: Span<felt252>,
+        ) {
             // Extract ERC721 address from config (first element)
             let erc721_address: ContractAddress = (*config.at(0)).try_into().unwrap();
             self.tournament_erc721_address.write(tournament_id, erc721_address);
@@ -92,8 +94,7 @@ pub mod entry_validator_mock {
             tournament_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
-        ) {
-            // No specific action needed for this mock on add_entry
+        ) { // No specific action needed for this mock on add_entry
         }
     }
 

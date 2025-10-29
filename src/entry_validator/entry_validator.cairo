@@ -28,7 +28,9 @@ pub mod EntryValidatorComponent {
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) -> Option<u8>;
-        fn add_config(ref self: TContractState, tournament_id: u64, config: Span<felt252>);
+        fn add_config(
+            ref self: TContractState, tournament_id: u64, entry_limit: u8, config: Span<felt252>,
+        );
         fn add_entry(
             ref self: TContractState,
             tournament_id: u64,
@@ -65,10 +67,13 @@ pub mod EntryValidatorComponent {
         }
 
         fn add_config(
-            ref self: ComponentState<TContractState>, tournament_id: u64, config: Span<felt252>,
+            ref self: ComponentState<TContractState>,
+            tournament_id: u64,
+            entry_limit: u8,
+            config: Span<felt252>,
         ) {
             let mut state = self.get_contract_mut();
-            Validator::add_config(ref state, tournament_id, config)
+            Validator::add_config(ref state, tournament_id, entry_limit, config)
         }
 
         fn add_entry(
@@ -78,12 +83,7 @@ pub mod EntryValidatorComponent {
             qualification: Span<felt252>,
         ) {
             let mut state = self.get_contract_mut();
-            Validator::add_entry(
-                ref state,
-                tournament_id,
-                player_address,
-                qualification,
-            )
+            Validator::add_entry(ref state, tournament_id, player_address, qualification)
         }
     }
 
