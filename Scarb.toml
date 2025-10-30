@@ -4,8 +4,14 @@ version = "0.1.0"
 edition = "2024_07"
 
 [dependencies]
-starknet = "2.10.1"
-openzeppelin_introspection = "1.0.0"
+starknet = "2.11.4"
+openzeppelin_token = "2.0.0"
+openzeppelin_governance = "2.0.0"
+openzeppelin_utils = "2.0.0"
+openzeppelin_introspection = "2.0.0"
+openzeppelin_access = "2.0.0"
+opus = { git = "https://github.com/lindy-labs/opus_contracts", tag = "v1.1.0" }
+wadray = { git = "https://github.com/lindy-labs/wadray.git", tag = "v0.3.0" }
 
 [tool.snforge]
 # exit_first = true
