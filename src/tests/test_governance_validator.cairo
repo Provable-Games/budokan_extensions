@@ -1,16 +1,21 @@
 use budokan_extensions::entry_validator::interface::{
     IEntryValidatorDispatcher, IEntryValidatorDispatcherTrait,
 };
-use snforge_std::{ContractClassTrait, DeclareResultTrait, declare, start_mock_call};
+use snforge_std::{ContractClassTrait, DeclareResultTrait, declare, start_mock_call, start_cheat_caller_address, stop_cheat_caller_address};
 use starknet::ContractAddress;
 
-fn deploy_vote_validator() -> ContractAddress {
-    let contract = declare("vote_validator_mock").unwrap().contract_class();
-    let (contract_address, _) = contract.deploy(@array![]).unwrap();
+// Mock budokan/tournament address used across tests
+fn budokan_address() -> ContractAddress {
+    0x1234.try_into().unwrap()
+}
+
+fn deploy_governance_validator() -> ContractAddress {
+    let contract = declare("governance_validator_mock").unwrap().contract_class();
+    let (contract_address, _) = contract.deploy(@array![budokan_address().into()]).unwrap();
     contract_address
 }
 
-fn configure_vote_validator(
+fn configure_governance_validator(
     validator_address: ContractAddress,
     tournament_id: u64,
     entry_limit: u8,
@@ -36,7 +41,10 @@ fn configure_vote_validator(
         votes_threshold.low.into(),
         votes_per_entry.low.into(),
     ];
+    // Set caller to budokan address to pass assert_only_budokan check
+    start_cheat_caller_address(validator_address, budokan_address());
     validator.add_config(tournament_id, entry_limit, config.span());
+    stop_cheat_caller_address(validator_address);
 }
 
 // Helper function to create mock addresses
@@ -51,13 +59,13 @@ fn mock_address(value: felt252) -> ContractAddress {
 #[test]
 fn test_valid_entry_with_balance_above_threshold() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
 
     // Configure validator with balance threshold of 1000, no voting check
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address,
         tournament_id,
         0, // entry_limit
@@ -74,9 +82,10 @@ fn test_valid_entry_with_balance_above_threshold() {
     let balance_selector = selector!("balance_of");
     start_mock_call(governance_token, balance_selector, 1500_u256);
 
-    // Mock the delegates call to return zero address (no delegation)
+    // Mock the delegates call to return non-zero address (has delegated)
+    let delegate: ContractAddress = mock_address(0x456);
     let delegates_selector = selector!("delegates");
-    start_mock_call(governance_token, delegates_selector, 0);
+    start_mock_call(governance_token, delegates_selector, delegate);
 
     let validator = IEntryValidatorDispatcher { contract_address: validator_address };
     let can_enter = validator.valid_entry(tournament_id, player, array![].span());
@@ -87,13 +96,13 @@ fn test_valid_entry_with_balance_above_threshold() {
 #[test]
 fn test_invalid_entry_with_balance_below_threshold_no_delegate() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
 
     // Configure validator with balance threshold of 1000, no voting check
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address,
         tournament_id,
         0,
@@ -123,20 +132,20 @@ fn test_invalid_entry_with_balance_below_threshold_no_delegate() {
 #[test]
 fn test_valid_entry_with_delegation() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let delegate: ContractAddress = mock_address(0x456);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
 
     // Configure validator with balance threshold of 1000, no voting check
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address, tournament_id, 0, governor, governance_token, 1000, 0, false, 0, 0,
     );
 
-    // Mock the ERC20 balance_of call to return 500 (below threshold)
+    // Mock the ERC20 balance_of call to return 1500 (above threshold)
     let balance_selector = selector!("balance_of");
-    start_mock_call(governance_token, balance_selector, 500_u256);
+    start_mock_call(governance_token, balance_selector, 1500_u256);
 
     // Mock the delegates call to return non-zero address (has delegation)
     let delegates_selector = selector!("delegates");
@@ -155,14 +164,14 @@ fn test_valid_entry_with_delegation() {
 #[test]
 fn test_valid_entry_with_voting_requirement_met() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
     let proposal_id: felt252 = 12345;
 
     // Configure validator with voting requirements
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address,
         tournament_id,
         0,
@@ -179,9 +188,10 @@ fn test_valid_entry_with_voting_requirement_met() {
     let balance_selector = selector!("balance_of");
     start_mock_call(governance_token, balance_selector, 1500_u256);
 
-    // Mock delegates (no delegation)
+    // Mock delegates (has delegated)
+    let delegate: ContractAddress = mock_address(0x456);
     let delegates_selector = selector!("delegates");
-    start_mock_call(governance_token, delegates_selector, 0);
+    start_mock_call(governance_token, delegates_selector, delegate);
 
     // Mock has_voted to return true
     let has_voted_selector = selector!("has_voted");
@@ -204,14 +214,14 @@ fn test_valid_entry_with_voting_requirement_met() {
 #[test]
 fn test_invalid_entry_has_not_voted() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
     let proposal_id: felt252 = 12345;
 
     // Configure validator with voting requirements
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address,
         tournament_id,
         0,
@@ -242,14 +252,14 @@ fn test_invalid_entry_has_not_voted() {
 #[test]
 fn test_invalid_entry_votes_below_threshold() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
     let proposal_id: felt252 = 12345;
 
     // Configure validator with voting requirements
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address,
         tournament_id,
         0,
@@ -290,13 +300,13 @@ fn test_invalid_entry_votes_below_threshold() {
 #[test]
 fn test_entries_left_unlimited() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
 
     // Configure validator with entry_limit = 0 (unlimited) and votes_per_entry = 0
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address,
         tournament_id,
         0, // entry_limit = 0 means unlimited
@@ -318,7 +328,7 @@ fn test_entries_left_unlimited() {
 #[test]
 fn test_entries_left_based_on_votes() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
@@ -326,7 +336,7 @@ fn test_entries_left_based_on_votes() {
 
     // Configure validator with votes_per_entry = 1000
     // balance_threshold = 1000, so (vote_count - balance_threshold) / votes_per_entry
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address,
         tournament_id,
         0,
@@ -357,13 +367,13 @@ fn test_entries_left_based_on_votes() {
 #[test]
 fn test_entries_left_with_fixed_limit() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
 
     // Configure validator with fixed entry_limit = 3 and votes_per_entry = 0
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address,
         tournament_id,
         3, // entry_limit = 3
@@ -384,14 +394,18 @@ fn test_entries_left_with_fixed_limit() {
     assert(entries_left.unwrap() == 3, 'Should have 3 entries left');
 
     // Simulate one entry used
+    start_cheat_caller_address(validator_address, budokan_address());
     validator.add_entry(tournament_id, player, array![].span());
+    stop_cheat_caller_address(validator_address);
 
     // Should have 2 entries left
     let entries_left = validator.entries_left(tournament_id, player, array![].span());
     assert(entries_left.unwrap() == 2, 'Should have 2 entries left');
 
     // Simulate another entry used
+    start_cheat_caller_address(validator_address, budokan_address());
     validator.add_entry(tournament_id, player, array![].span());
+    stop_cheat_caller_address(validator_address);
 
     // Should have 1 entry left
     let entries_left = validator.entries_left(tournament_id, player, array![].span());
@@ -404,18 +418,18 @@ fn test_entries_left_with_fixed_limit() {
 
 #[test]
 fn test_multiple_tournaments_independent_configs() {
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
 
     // Configure tournament 1 with threshold 1000
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address, 1, 0, governor, governance_token, 1000, 0, false, 0, 0,
     );
 
     // Configure tournament 2 with threshold 2000
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address, 2, 0, governor, governance_token, 2000, 0, false, 0, 0,
     );
 
@@ -423,7 +437,9 @@ fn test_multiple_tournaments_independent_configs() {
 
     // Mock balance of 1500 (above tournament 1 threshold, below tournament 2)
     start_mock_call(governance_token, selector!("balance_of"), 1500_u256);
-    start_mock_call(governance_token, selector!("delegates"), 0);
+    // Mock delegation
+    let delegate: ContractAddress = mock_address(0x456);
+    start_mock_call(governance_token, selector!("delegates"), delegate);
 
     // Should pass tournament 1
     let can_enter_t1 = validator.valid_entry(1, player, array![].span());
@@ -441,17 +457,17 @@ fn test_multiple_tournaments_independent_configs() {
 #[test]
 fn test_zero_balance_with_delegation() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let delegate: ContractAddress = mock_address(0x456);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
 
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address, tournament_id, 0, governor, governance_token, 1000, 0, false, 0, 0,
     );
 
-    // Mock zero balance
+    // Mock zero balance (below threshold of 1000)
     start_mock_call(governance_token, selector!("balance_of"), 0_u256);
 
     // Mock with delegation
@@ -460,18 +476,19 @@ fn test_zero_balance_with_delegation() {
     let validator = IEntryValidatorDispatcher { contract_address: validator_address };
     let can_enter = validator.valid_entry(tournament_id, player, array![].span());
 
-    assert(can_enter, 'Zero bal with delegate passes');
+    // Should fail because balance is below threshold, even with delegation
+    assert(!can_enter, 'Zero bal should fail');
 }
 
 #[test]
 fn test_exact_threshold_balance() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
 
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address, tournament_id, 0, governor, governance_token, 1000, 0, false, 0, 0,
     );
 
@@ -488,18 +505,20 @@ fn test_exact_threshold_balance() {
 #[test]
 fn test_just_above_threshold_balance() {
     let tournament_id: u64 = 1;
-    let validator_address = deploy_vote_validator();
+    let validator_address = deploy_governance_validator();
     let player: ContractAddress = mock_address(0x123);
     let governance_token: ContractAddress = mock_address(0x999);
     let governor: ContractAddress = mock_address(0x888);
 
-    configure_vote_validator(
+    configure_governance_validator(
         validator_address, tournament_id, 0, governor, governance_token, 1000, 0, false, 0, 0,
     );
 
     // Mock balance just above threshold
     start_mock_call(governance_token, selector!("balance_of"), 1001_u256);
-    start_mock_call(governance_token, selector!("delegates"), 0);
+    // Mock delegation
+    let delegate: ContractAddress = mock_address(0x456);
+    start_mock_call(governance_token, selector!("delegates"), delegate);
 
     let validator = IEntryValidatorDispatcher { contract_address: validator_address };
     let can_enter = validator.valid_entry(tournament_id, player, array![].span());

@@ -1,5 +1,5 @@
 #[starknet::contract]
-pub mod vote_validator_mock {
+pub mod governance_validator_mock {
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
     use core::num::traits::Zero;
@@ -50,8 +50,8 @@ pub mod vote_validator_mock {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState) {
-        self.entry_validator.initializer();
+    fn constructor(ref self: ContractState, tournament_address: ContractAddress) {
+        self.entry_validator.initializer(tournament_address);
     }
 
     // Implement the EntryValidator trait for the contract
@@ -69,7 +69,7 @@ pub mod vote_validator_mock {
             let votes_dispatcher = IVotesDispatcher { contract_address: governance_token_address };
             let delegates = votes_dispatcher.delegates(player_address);
             // If no delegate, or balance below threshold, reject entry
-            if delegates.is_zero() && balance < self.balance_threshold.read(tournament_id) {
+            if delegates.is_zero() || balance < self.balance_threshold.read(tournament_id) {
                 return false;
             }
             let check_voted = self.check_voted.read(tournament_id);

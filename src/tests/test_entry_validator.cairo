@@ -8,8 +8,13 @@ use budokan_extensions::tests::mocks::erc721_mock::{
     IERC721MockDispatcher, IERC721MockDispatcherTrait, IERC721MockPublicDispatcher,
     IERC721MockPublicDispatcherTrait,
 };
-use snforge_std::{ContractClassTrait, DeclareResultTrait, declare};
+use snforge_std::{ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address, stop_cheat_caller_address};
 use starknet::ContractAddress;
+
+// Mock budokan/tournament address used across tests
+fn budokan_address() -> ContractAddress {
+    0x1234.try_into().unwrap()
+}
 
 fn deploy_erc721() -> IERC721MockDispatcher {
     let contract = declare("erc721_mock").unwrap().contract_class();
@@ -19,7 +24,7 @@ fn deploy_erc721() -> IERC721MockDispatcher {
 
 fn deploy_entry_validator() -> ContractAddress {
     let contract = declare("entry_validator_mock").unwrap().contract_class();
-    let (contract_address, _) = contract.deploy(@array![]).unwrap();
+    let (contract_address, _) = contract.deploy(@array![budokan_address().into()]).unwrap();
     contract_address
 }
 
@@ -31,12 +36,15 @@ fn configure_entry_validator(
 ) {
     let validator = IEntryValidatorDispatcher { contract_address: validator_address };
     let mut config = array![erc721_address.into()];
+    // Set caller to budokan address to pass assert_only_budokan check
+    start_cheat_caller_address(validator_address, budokan_address());
     validator.add_config(tournament_id, entry_limit, config.span());
+    stop_cheat_caller_address(validator_address);
 }
 
 fn deploy_open_entry_validator() -> ContractAddress {
     let contract = declare("open_entry_validator_mock").unwrap().contract_class();
-    let (contract_address, _) = contract.deploy(@array![]).unwrap();
+    let (contract_address, _) = contract.deploy(@array![budokan_address().into()]).unwrap();
     contract_address
 }
 

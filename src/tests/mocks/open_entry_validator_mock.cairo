@@ -4,6 +4,8 @@ pub mod open_entry_validator_mock {
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
     use openzeppelin_introspection::src5::SRC5Component;
     use starknet::ContractAddress;
+    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
+
 
     component!(path: EntryValidatorComponent, storage: entry_validator, event: EntryValidatorEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -22,6 +24,8 @@ pub mod open_entry_validator_mock {
         entry_validator: EntryValidatorComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
+        tournament_entry_limit: Map<u64, u8>,
+        tournament_entries: Map<(u64, ContractAddress), u8>,
     }
 
     #[event]
@@ -34,8 +38,8 @@ pub mod open_entry_validator_mock {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState) {
-        self.entry_validator.initializer();
+    fn constructor(ref self: ContractState, tournament_address: ContractAddress) {
+        self.entry_validator.initializer(tournament_address);
     }
 
     // Implement the EntryValidator trait - always returns true (open to everyone)
@@ -56,14 +60,20 @@ pub mod open_entry_validator_mock {
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) -> Option<u8> {
-            // Open validator: unlimited entries
-            Option::None
+            let entry_limit = self.tournament_entry_limit.read(tournament_id);
+            if entry_limit == 0 {
+                return Option::None; // Unlimited entries
+            }
+            let key = (tournament_id, player_address);
+            let current_entries = self.tournament_entries.read(key);
+            let remaining_entries = entry_limit - current_entries;
+            return Option::Some(remaining_entries);
         }
 
         fn add_config(
             ref self: ContractState, tournament_id: u64, entry_limit: u8, config: Span<felt252>,
-        ) { // Open validator doesn't need configuration
-        // This is a no-op
+        ) {
+            self.tournament_entry_limit.write(tournament_id, entry_limit);
         }
 
         fn add_entry(
@@ -71,8 +81,10 @@ pub mod open_entry_validator_mock {
             tournament_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
-        ) { // Open validator doesn't track entries
-        // This is a no-op
+        ) {
+            let key = (tournament_id, player_address);
+            let current_entries = self.tournament_entries.read(key);
+            self.tournament_entries.write(key, current_entries + 1);
         }
     }
 }

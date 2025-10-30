@@ -2,3 +2,4 @@
 target/
 .env
 ./argent_account_sepolia.json
+deployments/

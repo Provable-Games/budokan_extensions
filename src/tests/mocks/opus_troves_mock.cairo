@@ -86,8 +86,8 @@ pub mod opus_troves_validator_mock {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState) {
-        self.entry_validator.initializer();
+    fn constructor(ref self: ContractState, tournament_address: ContractAddress) {
+        self.entry_validator.initializer(tournament_address);
     }
 
     // Implement the EntryValidator trait for the contract
