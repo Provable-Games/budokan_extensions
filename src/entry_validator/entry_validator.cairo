@@ -93,6 +93,12 @@ pub mod EntryValidatorComponent {
             let mut state = self.get_contract_mut();
             Validator::add_entry(ref state, tournament_id, player_address, qualification)
         }
+
+        fn budokan_address(
+            ref self: ComponentState<TContractState>,
+        ) -> ContractAddress {
+            self.budokan_address.read()
+        }
     }
 
     #[generate_trait]

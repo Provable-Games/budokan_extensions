@@ -24,4 +24,5 @@ pub trait IEntryValidator<TState> {
         player_address: ContractAddress,
         qualification: Span<felt252>,
     );
+    fn budokan_address(ref self: TState) -> ContractAddress;
 }
