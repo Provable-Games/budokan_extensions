@@ -9,3 +9,5 @@ scripts/delegate_votes/delegate_votes_*.csv
 scripts/delegate_votes/delegate_entries_*.json
 scripts/delegate_votes/node_modules/
 scripts/delegate_votes/package-lock.json
+
+argent_account_mainnet.json
