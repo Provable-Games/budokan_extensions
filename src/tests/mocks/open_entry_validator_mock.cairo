@@ -39,7 +39,7 @@ pub mod open_entry_validator_mock {
 
     #[constructor]
     fn constructor(ref self: ContractState, tournament_address: ContractAddress) {
-        self.entry_validator.initializer(tournament_address);
+        self.entry_validator.initializer(tournament_address, false);
     }
 
     // Implement the EntryValidator trait - always returns true (open to everyone)

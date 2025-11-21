@@ -5,6 +5,8 @@ pub const IENTRY_VALIDATOR_ID: felt252 =
 
 #[starknet::interface]
 pub trait IEntryValidator<TState> {
+    fn budokan_address(self: @TState) -> ContractAddress;
+    fn registration_only(self: @TState) -> bool;
     fn valid_entry(
         self: @TState,
         tournament_id: u64,
@@ -24,5 +26,4 @@ pub trait IEntryValidator<TState> {
         player_address: ContractAddress,
         qualification: Span<felt252>,
     );
-    fn budokan_address(ref self: TState) -> ContractAddress;
 }

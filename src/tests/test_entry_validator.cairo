@@ -8,7 +8,10 @@ use budokan_extensions::tests::mocks::erc721_mock::{
     IERC721MockDispatcher, IERC721MockDispatcherTrait, IERC721MockPublicDispatcher,
     IERC721MockPublicDispatcherTrait,
 };
-use snforge_std::{ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address, stop_cheat_caller_address};
+use snforge_std::{
+    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
+    stop_cheat_caller_address,
+};
 use starknet::ContractAddress;
 
 // Mock budokan/tournament address used across tests

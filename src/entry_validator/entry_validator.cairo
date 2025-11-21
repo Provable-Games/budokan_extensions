@@ -6,14 +6,13 @@ pub mod EntryValidatorComponent {
     use openzeppelin_introspection::src5::SRC5Component;
     use openzeppelin_introspection::src5::SRC5Component::InternalTrait as SRC5InternalTrait;
     use starknet::ContractAddress;
-    use starknet::storage::{
-        StoragePointerReadAccess, StoragePointerWriteAccess,
-    };
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use super::super::interface::{IENTRY_VALIDATOR_ID, IEntryValidator};
 
     #[storage]
     pub struct Storage {
         budokan_address: ContractAddress,
+        registration_only: bool,
     }
 
     #[event]
@@ -52,6 +51,14 @@ pub mod EntryValidatorComponent {
         impl SRC5: SRC5Component::HasComponent<TContractState>,
         +Drop<TContractState>,
     > of IEntryValidator<ComponentState<TContractState>> {
+        fn budokan_address(self: @ComponentState<TContractState>) -> ContractAddress {
+            self.budokan_address.read()
+        }
+
+        fn registration_only(self: @ComponentState<TContractState>) -> bool {
+            self.registration_only.read()
+        }
+
         fn valid_entry(
             self: @ComponentState<TContractState>,
             tournament_id: u64,
@@ -93,12 +100,6 @@ pub mod EntryValidatorComponent {
             let mut state = self.get_contract_mut();
             Validator::add_entry(ref state, tournament_id, player_address, qualification)
         }
-
-        fn budokan_address(
-            ref self: ComponentState<TContractState>,
-        ) -> ContractAddress {
-            self.budokan_address.read()
-        }
     }
 
     #[generate_trait]
@@ -108,8 +109,12 @@ pub mod EntryValidatorComponent {
         impl SRC5: SRC5Component::HasComponent<TContractState>,
         +Drop<TContractState>,
     > of InternalTrait<TContractState> {
-        fn initializer(ref self: ComponentState<TContractState>, budokan_address: ContractAddress) {
+        fn initializer(ref self: ComponentState<TContractState>, 
+            budokan_address: ContractAddress, 
+            registration_only: bool
+        ) {
             self.budokan_address.write(budokan_address);
+            self.registration_only.write(registration_only);
             self.register_entry_validator_interface();
         }
 
@@ -118,14 +123,11 @@ pub mod EntryValidatorComponent {
             src5_component.register_interface(IENTRY_VALIDATOR_ID);
         }
 
-        fn assert_only_budokan(
-            self: @ComponentState<TContractState>
-        ) {
+        fn assert_only_budokan(self: @ComponentState<TContractState>) {
             let caller = starknet::get_caller_address();
             let budokan_address = self.budokan_address.read();
             assert!(
-                caller == budokan_address,
-                "Entry Validator: Only Budokan can call this function"
+                caller == budokan_address, "Entry Validator: Only Budokan can call this function",
             );
         }
     }

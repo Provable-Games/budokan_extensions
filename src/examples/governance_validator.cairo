@@ -74,7 +74,6 @@ pub mod governance_validator_mock {
             }
             let check_voted = self.check_voted.read(tournament_id);
             if check_voted {
-                // Extract proposal_id from qualification
                 let proposal_id = self.proposal_id.read(tournament_id);
                 let governor_address = self.governor_address.read(tournament_id);
                 let governor_dispatcher = IGovernorDispatcher {

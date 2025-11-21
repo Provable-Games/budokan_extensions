@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Open Entry Validator Deployment Script
-# Deploys the open_entry_validator_mock contract to Starknet
+# Snapshot Validator Deployment Script
+# Deploys the SnapshotValidator contract to Starknet
 
 set -euo pipefail
 
@@ -134,25 +134,25 @@ print_info "Building contracts..."
 cd "$SCRIPT_DIR/.."
 scarb build
 
-if [ ! -f "target/dev/budokan_extensions_open_entry_validator_mock.contract_class.json" ]; then
-    print_error "open_entry_validator_mock contract build failed or contract file not found"
-    print_error "Expected: target/dev/budokan_extensions_open_entry_validator_mock.contract_class.json"
+if [ ! -f "target/dev/budokan_extensions_SnapshotValidator.contract_class.json" ]; then
+    print_error "SnapshotValidator contract build failed or contract file not found"
+    print_error "Expected: target/dev/budokan_extensions_SnapshotValidator.contract_class.json"
     echo "Available contract files:"
     ls -la target/dev/*.contract_class.json 2>/dev/null || echo "No contract files found"
     exit 1
 fi
 
 # ============================
-# DECLARE AND DEPLOY OPEN ENTRY VALIDATOR
+# DECLARE AND DEPLOY SNAPSHOT VALIDATOR
 # ============================
 
-print_info "Declaring open_entry_validator_mock contract..."
+print_info "Declaring SnapshotValidator contract..."
 
 # Build declare command based on deployment type
 if [ "$DEPLOY_TO_SLOT" = "true" ]; then
-    DECLARE_OUTPUT=$(starkli declare --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC --watch target/dev/budokan_extensions_open_entry_validator_mock.contract_class.json 2>&1)
+    DECLARE_OUTPUT=$(starkli declare --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC --watch target/dev/budokan_extensions_SnapshotValidator.contract_class.json 2>&1)
 else
-    DECLARE_OUTPUT=$(starkli declare --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC --watch target/dev/budokan_extensions_open_entry_validator_mock.contract_class.json --private-key $STARKNET_PK 2>&1)
+    DECLARE_OUTPUT=$(starkli declare --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC --watch target/dev/budokan_extensions_SnapshotValidator.contract_class.json --private-key $STARKNET_PK 2>&1)
 fi
 
 # Extract class hash from output
@@ -162,18 +162,18 @@ if [ -z "$CLASS_HASH" ]; then
     # Contract might already be declared, try to extract from error message
     if echo "$DECLARE_OUTPUT" | grep -q "already declared"; then
         CLASS_HASH=$(echo "$DECLARE_OUTPUT" | grep -oE 'class_hash: 0x[0-9a-fA-F]+' | grep -oE '0x[0-9a-fA-F]+')
-        print_warning "open_entry_validator_mock contract already declared with class hash: $CLASS_HASH"
+        print_warning "SnapshotValidator contract already declared with class hash: $CLASS_HASH"
     else
-        print_error "Failed to declare open_entry_validator_mock contract"
+        print_error "Failed to declare SnapshotValidator contract"
         echo "$DECLARE_OUTPUT"
         exit 1
     fi
 else
-    print_info "open_entry_validator_mock contract declared with class hash: $CLASS_HASH"
+    print_info "SnapshotValidator contract declared with class hash: $CLASS_HASH"
 fi
 
-# Deploy open_entry_validator_mock contract
-print_info "Deploying open_entry_validator_mock contract..."
+# Deploy SnapshotValidator contract
+print_info "Deploying SnapshotValidator contract..."
 
 # Constructor parameter: tournament_address (BUDOKAN_ADDRESS)
 print_info "Using BUDOKAN_ADDRESS as tournament_address: $BUDOKAN_ADDRESS"
@@ -198,27 +198,27 @@ else
 fi
 
 if [ -z "$CONTRACT_ADDRESS" ]; then
-    print_error "Failed to deploy open_entry_validator_mock contract"
+    print_error "Failed to deploy SnapshotValidator contract"
     exit 1
 fi
 
-print_info "open_entry_validator_mock contract deployed at address: $CONTRACT_ADDRESS"
+print_info "SnapshotValidator contract deployed at address: $CONTRACT_ADDRESS"
 
 # ============================
 # SAVE DEPLOYMENT INFO
 # ============================
 
-DEPLOYMENT_FILE="deployments/open_entry_validator_$(date +%Y%m%d_%H%M%S).json"
+DEPLOYMENT_FILE="deployments/snapshot_validator_$(date +%Y%m%d_%H%M%S).json"
 mkdir -p deployments
 
 cat > "$DEPLOYMENT_FILE" << EOF
 {
   "network": "${STARKNET_NETWORK:-slot}",
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "open_entry_validator": {
+  "snapshot_validator": {
     "address": "$CONTRACT_ADDRESS",
     "class_hash": "$CLASS_HASH",
-    "description": "Open entry validator that allows all players to enter without token requirements"
+    "description": "Snapshot-based entry validator with tournament-specific snapshot management"
   }
 }
 EOF
@@ -232,27 +232,38 @@ print_info "Deployment info saved to: $DEPLOYMENT_FILE"
 echo
 print_info "=== DEPLOYMENT SUCCESSFUL ==="
 echo
-echo "Open Entry Validator Contract:"
+echo "Snapshot Validator Contract:"
 echo "  Address: $CONTRACT_ADDRESS"
 echo "  Class Hash: $CLASS_HASH"
 echo ""
 
 echo "Next steps:"
 echo "1. Verify the contract on Starkscan/Voyager"
-echo "2. Test the valid_entry function to ensure anyone can enter"
-echo "3. Integrate with your game contracts"
+echo "2. Create a snapshot using create_snapshot()"
+echo "3. Upload snapshot data using upload_snapshot_data()"
+echo "4. Lock the snapshot using lock_snapshot()"
+echo "5. Configure tournaments to use the snapshot via add_config()"
 echo ""
 
 echo "To interact with the contract:"
-echo "  export ENTRY_VALIDATOR=$CONTRACT_ADDRESS"
+echo "  export SNAPSHOT_VALIDATOR=$CONTRACT_ADDRESS"
 echo ""
 
-echo "Example: Test entry validation:"
+echo "Example: Create a snapshot:"
 if [ "$DEPLOY_TO_SLOT" = "true" ]; then
-    echo "  starkli call \$ENTRY_VALIDATOR valid_entry \\"
-    echo "    <player_address> 0"
+    echo "  starkli invoke \$SNAPSHOT_VALIDATOR create_snapshot"
 else
-    echo "  starkli call --rpc \$STARKNET_RPC \$ENTRY_VALIDATOR valid_entry \\"
-    echo "    <player_address> 0"
+    echo "  starkli invoke --rpc \$STARKNET_RPC \$SNAPSHOT_VALIDATOR create_snapshot \\"
+    echo "    --private-key \$STARKNET_PK"
+fi
+echo ""
+
+echo "Example: Check snapshot metadata:"
+if [ "$DEPLOY_TO_SLOT" = "true" ]; then
+    echo "  starkli call \$SNAPSHOT_VALIDATOR get_snapshot_metadata \\"
+    echo "    <snapshot_id>"
+else
+    echo "  starkli call --rpc \$STARKNET_RPC \$SNAPSHOT_VALIDATOR get_snapshot_metadata \\"
+    echo "    <snapshot_id>"
 fi
 echo ""

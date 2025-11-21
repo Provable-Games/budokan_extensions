@@ -1,0 +1,15 @@
+{
+  "name": "budokan-delegate-entries",
+  "version": "1.0.0",
+  "description": "Process delegate votes and calculate entry allocations",
+  "main": "process_delegate_entries.js",
+  "scripts": {
+    "process": "node process_delegate_entries.js"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

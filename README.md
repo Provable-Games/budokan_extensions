@@ -1,1 +1,3 @@
 # budokan_extensions
+
+Snapshot Entry Validator: 0x079e3a4b02a079672aae7f128347b11bd1a50cf9f94e795064d9e601326483d3

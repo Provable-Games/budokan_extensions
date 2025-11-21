@@ -1,7 +1,10 @@
 use budokan_extensions::entry_validator::interface::{
     IEntryValidatorDispatcher, IEntryValidatorDispatcherTrait,
 };
-use snforge_std::{ContractClassTrait, DeclareResultTrait, declare, start_mock_call, start_cheat_caller_address, stop_cheat_caller_address};
+use snforge_std::{
+    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address, start_mock_call,
+    stop_cheat_caller_address,
+};
 use starknet::ContractAddress;
 
 // Mock budokan/tournament address used across tests
