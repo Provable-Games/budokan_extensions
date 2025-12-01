@@ -41,6 +41,12 @@ pub mod EntryValidatorComponent {
             player_address: ContractAddress,
             qualification: Span<felt252>,
         );
+        fn remove_entry(
+            ref self: TContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        );
     }
 
     #[embeddable_as(EntryValidatorImpl)]
@@ -99,6 +105,17 @@ pub mod EntryValidatorComponent {
             self.assert_only_budokan();
             let mut state = self.get_contract_mut();
             Validator::add_entry(ref state, tournament_id, player_address, qualification)
+        }
+
+        fn remove_entry(
+            ref self: ComponentState<TContractState>,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) {
+            self.assert_only_budokan();
+            let mut state = self.get_contract_mut();
+            Validator::remove_entry(ref state, tournament_id, player_address, qualification)
         }
     }
 

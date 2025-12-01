@@ -169,6 +169,21 @@ pub mod SnapshotValidator {
                 .tournament_address_entries_used
                 .write((tournament_id, player_address), used_entries + 1);
         }
+
+        fn remove_entry(
+            ref self: ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) {
+            let used_entries = self
+                .tournament_address_entries_used
+                .read((tournament_id, player_address));
+            assert!(used_entries > 0, "Snapshot Validator: No entries to remove");
+            self
+                .tournament_address_entries_used
+                .write((tournament_id, player_address), used_entries - 1);
+        }
     }
 
     // Public interface implementation

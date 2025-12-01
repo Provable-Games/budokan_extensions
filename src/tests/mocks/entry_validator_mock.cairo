@@ -11,7 +11,7 @@ pub mod entry_validator_mock {
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
     use core::num::traits::Zero;
     use openzeppelin_introspection::src5::SRC5Component;
-    use openzeppelin_token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
+    use openzeppelin_interfaces::erc721::{IERC721Dispatcher, IERC721DispatcherTrait};
     use starknet::ContractAddress;
     use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
 
@@ -95,6 +95,14 @@ pub mod entry_validator_mock {
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) { // No specific action needed for this mock on add_entry
+        }
+
+        fn remove_entry(
+            ref self: ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) { // No specific action needed for this mock on remove_entry
         }
     }
 

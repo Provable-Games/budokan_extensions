@@ -3,12 +3,10 @@ pub mod governance_validator_mock {
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
     use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
     use core::num::traits::Zero;
-    use openzeppelin_governance::governor::interface::{
-        IGovernorDispatcher, IGovernorDispatcherTrait,
-    };
-    use openzeppelin_governance::votes::interface::{IVotesDispatcher, IVotesDispatcherTrait};
+    use openzeppelin_interfaces::governor::{IGovernorDispatcher, IGovernorDispatcherTrait};
+    use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
     use openzeppelin_introspection::src5::SRC5Component;
-    use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::ContractAddress;
     use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
 
@@ -155,6 +153,18 @@ pub mod governance_validator_mock {
             let key = (tournament_id, player_address);
             let current_entries = self.tournament_entries_per_address.read(key);
             self.tournament_entries_per_address.write(key, current_entries + 1);
+        }
+
+        fn remove_entry(
+            ref self: ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) {
+            let key = (tournament_id, player_address);
+            let current_entries = self.tournament_entries_per_address.read(key);
+            assert!(current_entries > 0, "Governance Validator: No entries to remove");
+            self.tournament_entries_per_address.write(key, current_entries - 1);
         }
     }
 }

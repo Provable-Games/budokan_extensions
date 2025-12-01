@@ -26,4 +26,10 @@ pub trait IEntryValidator<TState> {
         player_address: ContractAddress,
         qualification: Span<felt252>,
     );
+    fn remove_entry(
+        ref self: TState,
+        tournament_id: u64,
+        player_address: ContractAddress,
+        qualification: Span<felt252>,
+    );
 }

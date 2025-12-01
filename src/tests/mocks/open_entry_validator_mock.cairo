@@ -86,5 +86,17 @@ pub mod open_entry_validator_mock {
             let current_entries = self.tournament_entries.read(key);
             self.tournament_entries.write(key, current_entries + 1);
         }
+
+        fn remove_entry(
+            ref self: ContractState,
+            tournament_id: u64,
+            player_address: ContractAddress,
+            qualification: Span<felt252>,
+        ) {
+            let key = (tournament_id, player_address);
+            let current_entries = self.tournament_entries.read(key);
+            assert!(current_entries > 0, "Open Entry Validator: No entries to remove");
+            self.tournament_entries.write(key, current_entries - 1);
+        }
     }
 }

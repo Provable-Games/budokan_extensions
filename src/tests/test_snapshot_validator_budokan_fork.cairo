@@ -4,8 +4,9 @@ use budokan_extensions::entry_validator::interface::{
 use budokan_extensions::examples::snapshot_validator::{
     Entry, ISnapshotValidatorDispatcher, ISnapshotValidatorDispatcherTrait, SnapshotStatus,
 };
+use budokan_extensions::tests::constants::{budokan_address, minigame_address, test_account};
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, declare, start_cheat_block_timestamp_global,
+    ContractClassTrait, DeclareResultTrait, declare,
     start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::{ContractAddress, get_block_timestamp};
@@ -116,6 +117,8 @@ pub trait IBudokan<TState> {
         game_config: GameConfig,
         entry_fee: Option<EntryFee>,
         entry_requirement: Option<EntryRequirement>,
+        soulbound: bool,
+        play_url: ByteArray,
     ) -> Tournament;
     fn enter_tournament(
         ref self: TState,
@@ -142,22 +145,6 @@ pub trait IBudokan<TState> {
 // - Test account with permissions
 // ==============================================
 
-// Configuration - Mainnet contract addresses
-fn budokan_address() -> ContractAddress {
-    // Mainnet Budokan contract address
-    0x58f888ba5897efa811eca5e5818540d35b664f4281660cd839cd5a4b0bf4582.try_into().unwrap()
-}
-
-fn minigame_address() -> ContractAddress {
-    // Mainnet minigame contract address
-    0x5e2dfbdc3c193de629e5beb116083b06bd944c1608c9c793351d5792ba29863.try_into().unwrap()
-}
-
-fn test_account() -> ContractAddress {
-    // Mainnet test account address
-    0x077b8Ed8356a7C1F0903Fc4bA6E15F9b09CF437ce04f21B2cBf32dC2790183d0.try_into().unwrap()
-}
-
 // Deploy the SnapshotValidator contract
 fn deploy_snapshot_validator(tournament_address: ContractAddress) -> ContractAddress {
     let contract = declare("SnapshotValidator").unwrap().contract_class();
@@ -178,7 +165,7 @@ fn test_schedule() -> Schedule {
     let current_time = get_block_timestamp();
     Schedule {
         registration: Option::Some(Period { start: current_time + 100, end: current_time + 1000 }),
-        game: Period { start: current_time + 1000, end: current_time + 2000 },
+        game: Period { start: current_time + 1001, end: current_time + 2000 },
         submission_duration: 900,
     }
 }
@@ -265,6 +252,8 @@ fn test_snapshot_validator_budokan_create_tournament() {
             test_game_config(minigame_addr),
             Option::None, // No entry fee
             Option::Some(entry_requirement),
+            false,
+            ""
         );
     stop_cheat_caller_address(budokan_addr);
 
@@ -425,6 +414,8 @@ fn test_snapshot_validator_budokan_unauthorized_entry() {
             test_game_config(minigame_addr),
             Option::None,
             Option::Some(entry_requirement),
+            false,
+            ""
         );
     stop_cheat_caller_address(budokan_addr);
 
@@ -672,6 +663,8 @@ fn test_snapshot_validator_exceed_entry_limit() {
             test_game_config(minigame_addr),
             Option::None,
             Option::Some(entry_requirement),
+            false,
+            ""
         );
     stop_cheat_caller_address(budokan_addr);
 
