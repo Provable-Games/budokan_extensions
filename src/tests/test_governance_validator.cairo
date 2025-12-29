@@ -1,4 +1,4 @@
-use budokan_extensions::entry_validator::interface::{
+use budokan_interfaces::entry_validator::{
     IEntryValidatorDispatcher, IEntryValidatorDispatcherTrait,
 };
 use snforge_std::{
@@ -13,7 +13,7 @@ fn budokan_address() -> ContractAddress {
 }
 
 fn deploy_governance_validator() -> ContractAddress {
-    let contract = declare("governance_validator_mock").unwrap().contract_class();
+    let contract = declare("GovernanceValidator").unwrap().contract_class();
     let (contract_address, _) = contract.deploy(@array![budokan_address().into()]).unwrap();
     contract_address
 }
@@ -32,16 +32,12 @@ fn configure_governance_validator(
 ) {
     let validator = IEntryValidatorDispatcher { contract_address: validator_address };
     let config = array![
-        governor_address.into(),
-        governance_token_address.into(),
-        balance_threshold.low.into(),
-        proposal_id,
-        if check_voted {
+        governor_address.into(), governance_token_address.into(), balance_threshold.low.into(),
+        proposal_id, if check_voted {
             1
         } else {
             0
-        },
-        votes_threshold.low.into(),
+        }, votes_threshold.low.into(),
         votes_per_entry.low.into(),
     ];
     // Set caller to budokan address to pass assert_only_budokan check
@@ -398,7 +394,7 @@ fn test_entries_left_with_fixed_limit() {
 
     // Simulate one entry used
     start_cheat_caller_address(validator_address, budokan_address());
-    validator.add_entry(tournament_id, player, array![].span());
+    validator.add_entry(tournament_id, 0, player, array![].span());
     stop_cheat_caller_address(validator_address);
 
     // Should have 2 entries left
@@ -407,7 +403,7 @@ fn test_entries_left_with_fixed_limit() {
 
     // Simulate another entry used
     start_cheat_caller_address(validator_address, budokan_address());
-    validator.add_entry(tournament_id, player, array![].span());
+    validator.add_entry(tournament_id, 0, player, array![].span());
     stop_cheat_caller_address(validator_address);
 
     // Should have 1 entry left

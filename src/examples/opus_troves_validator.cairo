@@ -33,8 +33,8 @@ pub trait IEntryValidatorMock<TState> {
 
 #[starknet::contract]
 pub mod OpusTrovesValidator {
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent::EntryValidator;
     use core::num::traits::Zero;
     use openzeppelin_introspection::src5::SRC5Component;
     use opus::periphery::interfaces::{
@@ -77,7 +77,7 @@ pub mod OpusTrovesValidator {
         tournament_entry_limit: Map<u64, u8>,
         tournament_entries_per_address: Map<(u64, ContractAddress), u8>,
         tournament_value_per_entry: Map<u64, u128>, // Value required per entry (0 = fixed limit)
-        tournament_max_entries: Map<u64, u8>, // Maximum entries cap (0 = no cap)
+        tournament_max_entries: Map<u64, u8> // Maximum entries cap (0 = no cap)
     }
 
     #[event]
@@ -90,8 +90,9 @@ pub mod OpusTrovesValidator {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, tournament_address: ContractAddress) {
-        self.entry_validator.initializer(tournament_address, true);
+    fn constructor(ref self: ContractState, budokan_address: ContractAddress) {
+        // Trove collateral can change, so registration_only = false (allow banning)
+        self.entry_validator.initializer(budokan_address, false);
     }
 
     // Implement the EntryValidator trait for the contract
@@ -103,34 +104,101 @@ pub mod OpusTrovesValidator {
             qualification: Span<felt252>,
         ) -> bool {
             assert!(qualification.len() == 0, "Opus Entry Validator: Qualification data invalid");
-            let abbot = IAbbotDispatcher { contract_address: abbot_address() };
-            let mut user_troves: Span<u64> = abbot.get_user_trove_ids(player_address);
 
-            // If user has no troves, they cannot enter
-            if user_troves.len() == 0 {
-                return false;
+            // Must meet trove requirements AND have entries available
+            self.check_trove_requirements(tournament_id, player_address)
+                && self.has_entries_available(tournament_id, player_address)
+        }
+
+        /// Check if an existing entry should be banned
+        /// Returns true if the player's trove collateral dropped below threshold OR is over quota
+        fn should_ban_entry(
+            self: @ContractState,
+            tournament_id: u64,
+            game_token_id: u64,
+            current_owner: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> bool {
+            // Ban if player no longer meets basic trove requirements
+            if !self.check_trove_requirements(tournament_id, current_owner) {
+                return true;
             }
 
-            let trove_id: u64 = *user_troves.pop_front().unwrap();
-            let fdp = IFrontendDataProviderDispatcher { contract_address: fdp_address() };
-            let trove_info: TroveInfo = fdp.get_trove_info(trove_id);
-            let trove_asset_felt = self.tournament_trove_asset.read(tournament_id);
-            let trove_asset: ContractAddress = trove_asset_felt.try_into().unwrap();
+            // Check if player is over their quota
+            let value_per_entry = self.tournament_value_per_entry.read(tournament_id);
+            if value_per_entry > 0 {
+                // Calculate current allowed entries based on current trove value
+                let abbot = IAbbotDispatcher { contract_address: abbot_address() };
+                let mut user_troves: Span<u64> = abbot.get_user_trove_ids(current_owner);
 
-            let mut deposited_value: Wad = Zero::zero();
-
-            // Find the asset in the trove and check its value
-            for trove_asset_info in trove_info.assets {
-                if *trove_asset_info.shrine_asset_info.address == trove_asset {
-                    deposited_value = *trove_asset_info.value;
-                    break;
+                if user_troves.len() == 0 {
+                    // No troves = 0 allowed entries, ban all existing entries
+                    return true;
                 }
+
+                let trove_id: u64 = match user_troves.pop_front() {
+                    Option::Some(id) => *id,
+                    Option::None => { return true; }, // No trove = ban
+                };
+
+                let fdp = IFrontendDataProviderDispatcher { contract_address: fdp_address() };
+                let trove_info: TroveInfo = fdp.get_trove_info(trove_id);
+                let trove_asset_felt = self.tournament_trove_asset.read(tournament_id);
+                let trove_asset: ContractAddress = match trove_asset_felt.try_into() {
+                    Option::Some(addr) => addr,
+                    Option::None => { return true; }, // Invalid asset = ban
+                };
+
+                let mut deposited_value: Wad = Zero::zero();
+
+                // Find the asset in the trove and check its value
+                for trove_asset_info in trove_info.assets {
+                    if *trove_asset_info.shrine_asset_info.address == trove_asset {
+                        deposited_value = *trove_asset_info.value;
+                        break;
+                    }
+                }
+
+                let threshold = self.tournament_trove_threshold.read(tournament_id);
+                let threshold_wad: Wad = threshold.into();
+                let value_per_entry_wad: Wad = value_per_entry.into();
+
+                let total_allowed_entries = if deposited_value > threshold_wad {
+                    let result_wad = (deposited_value - threshold_wad) / value_per_entry_wad;
+                    result_wad.val / 1000000000000000000 / 1000000000000000000
+                } else {
+                    0
+                };
+
+                let key = (tournament_id, current_owner);
+                let used_entries = self.tournament_entries_per_address.read(key);
+
+                let total_allowed_u8: u8 = match total_allowed_entries.try_into() {
+                    Option::Some(val) => val,
+                    Option::None => {
+                        if total_allowed_entries > 255 {
+                            255_u8
+                        } else {
+                            0
+                        }
+                    },
+                };
+
+                // Apply max entries cap if set
+                let max_entries = self.tournament_max_entries.read(tournament_id);
+                let final_allowed = if max_entries > 0 && total_allowed_u8 > max_entries {
+                    max_entries
+                } else {
+                    total_allowed_u8
+                };
+
+                // Ban if player has more entries than currently allowed
+                return used_entries > final_allowed;
             }
 
-            // Check if deposited value meets the threshold
-            let threshold = self.tournament_trove_threshold.read(tournament_id);
-            let threshold_wad: Wad = threshold.into();
-            deposited_value >= threshold_wad
+            // For fixed entry limits, player shouldn't be over quota
+            // (they would have been blocked at entry time)
+            false
         }
 
         fn entries_left(
@@ -153,14 +221,14 @@ pub mod OpusTrovesValidator {
 
                 let trove_id: u64 = match user_troves.pop_front() {
                     Option::Some(id) => *id,
-                    Option::None => { return Option::Some(0); }
+                    Option::None => { return Option::Some(0); },
                 };
                 let fdp = IFrontendDataProviderDispatcher { contract_address: fdp_address() };
                 let trove_info: TroveInfo = fdp.get_trove_info(trove_id);
                 let trove_asset_felt = self.tournament_trove_asset.read(tournament_id);
                 let trove_asset: ContractAddress = match trove_asset_felt.try_into() {
                     Option::Some(addr) => addr,
-                    Option::None => { return Option::Some(0); }
+                    Option::None => { return Option::Some(0); },
                 };
 
                 let mut deposited_value: Wad = Zero::zero();
@@ -173,18 +241,12 @@ pub mod OpusTrovesValidator {
                     }
                 }
 
-                // Note: deposited_value is in Wad (value already includes decimals)
-                // threshold and value_per_entry are in Wad units (e.g., 100 = 100 Wad, not 100e18)
                 let threshold = self.tournament_trove_threshold.read(tournament_id);
                 let threshold_wad: Wad = threshold.into();
                 let value_per_entry_wad: Wad = value_per_entry.into();
 
-                // Calculate total entries: (deposited_value - threshold) / value_per_entry
-                // Note: Wad division maintains precision, so the result has 36 decimals (Wad / Wad = Wad with extra precision)
-                // We need to divide by 10^36 (or 10^18 twice) to get the integer number of entries
                 let total_entries = if deposited_value > threshold_wad {
                     let result_wad = (deposited_value - threshold_wad) / value_per_entry_wad;
-                    // Divide by 10^18 twice to remove the 36 decimals
                     result_wad.val / 1000000000000000000 / 1000000000000000000
                 } else {
                     0
@@ -193,20 +255,17 @@ pub mod OpusTrovesValidator {
                 let key = (tournament_id, player_address);
                 let used_entries = self.tournament_entries_per_address.read(key);
 
-                // Safe conversion: if fails (too large or invalid), cap at 255 or return 0
                 let mut total_entries_u8: u8 = match total_entries.try_into() {
                     Option::Some(val) => val,
                     Option::None => {
-                        // Conversion failed - likely value too large for u8 or negative
                         if total_entries > 255 {
-                            255_u8 // Cap at max u8
+                            255_u8
                         } else {
-                            return Option::Some(0); // Invalid value, return 0 entries
+                            return Option::Some(0);
                         }
-                    }
+                    },
                 };
 
-                // Apply max entries cap if set
                 let max_entries = self.tournament_max_entries.read(tournament_id);
                 if max_entries > 0 && total_entries_u8 > max_entries {
                     total_entries_u8 = max_entries;
@@ -218,10 +277,9 @@ pub mod OpusTrovesValidator {
                     return Option::Some(0);
                 }
             } else {
-                // Use fixed entry limit (original behavior)
                 let entry_limit = self.tournament_entry_limit.read(tournament_id);
                 if entry_limit == 0 {
-                    return Option::None; // Unlimited entries
+                    return Option::None;
                 }
                 let key = (tournament_id, player_address);
                 let current_entries = self.tournament_entries_per_address.read(key);
@@ -233,19 +291,17 @@ pub mod OpusTrovesValidator {
         fn add_config(
             ref self: ContractState, tournament_id: u64, entry_limit: u8, config: Span<felt252>,
         ) {
-            // Extract trove asset address, threshold, value_per_entry, and max_entries from config
-            // Config format: [trove_asset, trove_threshold, value_per_entry, max_entries]
             let trove_asset: ContractAddress = (*config.at(0)).try_into().unwrap();
             let trove_threshold: u128 = (*config.at(1)).try_into().unwrap();
             let value_per_entry: u128 = if config.len() > 2 {
                 (*config.at(2)).try_into().unwrap()
             } else {
-                0 // Default to fixed entry limit if not provided
+                0
             };
             let max_entries: u8 = if config.len() > 3 {
                 (*config.at(3)).try_into().unwrap()
             } else {
-                0 // Default to no cap if not provided
+                0
             };
 
             self.tournament_trove_asset.write(tournament_id, trove_asset);
@@ -255,9 +311,10 @@ pub mod OpusTrovesValidator {
             self.tournament_max_entries.write(tournament_id, max_entries);
         }
 
-        fn add_entry(
+        fn on_entry_added(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) {
@@ -266,16 +323,141 @@ pub mod OpusTrovesValidator {
             self.tournament_entries_per_address.write(key, current_entries + 1);
         }
 
-        fn remove_entry(
+        fn on_entry_removed(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) {
             let key = (tournament_id, player_address);
             let current_entries = self.tournament_entries_per_address.read(key);
-            assert!(current_entries > 0, "Opus Entry Validator: No entries to remove");
-            self.tournament_entries_per_address.write(key, current_entries - 1);
+            if current_entries > 0 {
+                self.tournament_entries_per_address.write(key, current_entries - 1);
+            }
+        }
+    }
+
+    #[generate_trait]
+    impl InternalImpl of InternalTrait {
+        fn check_trove_requirements(
+            self: @ContractState, tournament_id: u64, player_address: ContractAddress,
+        ) -> bool {
+            let abbot = IAbbotDispatcher { contract_address: abbot_address() };
+            let mut user_troves: Span<u64> = abbot.get_user_trove_ids(player_address);
+
+            if user_troves.len() == 0 {
+                return false;
+            }
+
+            let trove_id: u64 = *user_troves.pop_front().unwrap();
+            let fdp = IFrontendDataProviderDispatcher { contract_address: fdp_address() };
+            let trove_info: TroveInfo = fdp.get_trove_info(trove_id);
+            let trove_asset_felt = self.tournament_trove_asset.read(tournament_id);
+            let trove_asset: ContractAddress = trove_asset_felt.try_into().unwrap();
+
+            let mut deposited_value: Wad = Zero::zero();
+
+            for trove_asset_info in trove_info.assets {
+                if *trove_asset_info.shrine_asset_info.address == trove_asset {
+                    deposited_value = *trove_asset_info.value;
+                    break;
+                }
+            }
+
+            let threshold = self.tournament_trove_threshold.read(tournament_id);
+            let threshold_wad: Wad = threshold.into();
+            deposited_value >= threshold_wad
+        }
+
+        /// Check if player has entries available (quota not exhausted)
+        fn has_entries_available(
+            self: @ContractState, tournament_id: u64, player_address: ContractAddress,
+        ) -> bool {
+            let value_per_entry = self.tournament_value_per_entry.read(tournament_id);
+
+            if value_per_entry > 0 {
+                // Check quota based on trove value
+                let used_entries = self
+                    .tournament_entries_per_address
+                    .read((tournament_id, player_address));
+
+                // If no entries used yet, they have entries available (assuming they meet requirements)
+                if used_entries == 0 {
+                    return true;
+                }
+
+                // Calculate current allowed entries
+                let abbot = IAbbotDispatcher { contract_address: abbot_address() };
+                let mut user_troves: Span<u64> = abbot.get_user_trove_ids(player_address);
+
+                if user_troves.len() == 0 {
+                    return false;
+                }
+
+                let trove_id: u64 = match user_troves.pop_front() {
+                    Option::Some(id) => *id,
+                    Option::None => { return false; },
+                };
+
+                let fdp = IFrontendDataProviderDispatcher { contract_address: fdp_address() };
+                let trove_info: TroveInfo = fdp.get_trove_info(trove_id);
+                let trove_asset_felt = self.tournament_trove_asset.read(tournament_id);
+                let trove_asset: ContractAddress = match trove_asset_felt.try_into() {
+                    Option::Some(addr) => addr,
+                    Option::None => { return false; },
+                };
+
+                let mut deposited_value: Wad = Zero::zero();
+
+                for trove_asset_info in trove_info.assets {
+                    if *trove_asset_info.shrine_asset_info.address == trove_asset {
+                        deposited_value = *trove_asset_info.value;
+                        break;
+                    }
+                }
+
+                let threshold = self.tournament_trove_threshold.read(tournament_id);
+                let threshold_wad: Wad = threshold.into();
+                let value_per_entry_wad: Wad = value_per_entry.into();
+
+                let total_allowed_entries = if deposited_value > threshold_wad {
+                    let result_wad = (deposited_value - threshold_wad) / value_per_entry_wad;
+                    result_wad.val / 1000000000000000000 / 1000000000000000000
+                } else {
+                    0
+                };
+
+                let total_allowed_u8: u8 = match total_allowed_entries.try_into() {
+                    Option::Some(val) => val,
+                    Option::None => {
+                        if total_allowed_entries > 255 {
+                            255_u8
+                        } else {
+                            0
+                        }
+                    },
+                };
+
+                let max_entries = self.tournament_max_entries.read(tournament_id);
+                let final_allowed = if max_entries > 0 && total_allowed_u8 > max_entries {
+                    max_entries
+                } else {
+                    total_allowed_u8
+                };
+
+                return used_entries < final_allowed;
+            } else {
+                // Fixed entry limit mode
+                let entry_limit = self.tournament_entry_limit.read(tournament_id);
+                if entry_limit == 0 {
+                    return true; // Unlimited
+                }
+                let used_entries = self
+                    .tournament_entries_per_address
+                    .read((tournament_id, player_address));
+                return used_entries < entry_limit;
+            }
         }
     }
 

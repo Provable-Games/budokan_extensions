@@ -1,12 +1,12 @@
-use budokan_extensions::entry_validator::interface::{
-    IEntryValidatorDispatcher, IEntryValidatorDispatcherTrait,
-};
 use budokan_extensions::tests::mocks::entry_validator_mock::{
     IEntryValidatorMockDispatcher, IEntryValidatorMockDispatcherTrait,
 };
 use budokan_extensions::tests::mocks::erc721_mock::{
     IERC721MockDispatcher, IERC721MockDispatcherTrait, IERC721MockPublicDispatcher,
     IERC721MockPublicDispatcherTrait,
+};
+use budokan_interfaces::entry_validator::{
+    IEntryValidatorDispatcher, IEntryValidatorDispatcherTrait,
 };
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,

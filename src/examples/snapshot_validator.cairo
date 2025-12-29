@@ -32,8 +32,8 @@ pub trait ISnapshotValidator<TState> {
 
 #[starknet::contract]
 pub mod SnapshotValidator {
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent::EntryValidator;
     use openzeppelin_introspection::src5::SRC5Component;
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
@@ -59,7 +59,7 @@ pub mod SnapshotValidator {
         entry_validator: EntryValidatorComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
-        // New snapshot ID-based storage
+        // Snapshot ID-based storage
         snapshot_metadata: Map<u64, SnapshotMetadata>,
         snapshot_entries: Map<(u64, ContractAddress), u8>,
         snapshot_exists: Map<u64, bool>,
@@ -97,7 +97,6 @@ pub mod SnapshotValidator {
         count: u8,
     }
 
-
     #[derive(Drop, starknet::Event)]
     struct SnapshotDataUploaded {
         #[key]
@@ -112,8 +111,10 @@ pub mod SnapshotValidator {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, tournament_address: ContractAddress) {
-        self.entry_validator.initializer(tournament_address, false);
+    fn constructor(ref self: ContractState, budokan_address: ContractAddress) {
+        // Snapshot is a point-in-time check, so registration_only = true (never ban after
+        // registration)
+        self.entry_validator.initializer(budokan_address, true);
     }
 
     // Implement the EntryValidator trait for the contract
@@ -127,6 +128,19 @@ pub mod SnapshotValidator {
             let snapshot_id = self.tournament_snapshot.read(tournament_id);
             let address_entries = self.snapshot_entries.read((snapshot_id, player_address));
             address_entries > 0
+        }
+
+        /// Snapshot entries should never be banned after registration
+        /// The snapshot represents a point-in-time qualification that doesn't change
+        fn should_ban_entry(
+            self: @ContractState,
+            tournament_id: u64,
+            game_token_id: u64,
+            current_owner: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> bool {
+            // Never ban snapshot entries - they were valid at registration time
+            false
         }
 
         fn entries_left(
@@ -150,16 +164,14 @@ pub mod SnapshotValidator {
             let snapshot_id_felt = *config.at(0);
             let snapshot_id: u64 = snapshot_id_felt.try_into().unwrap();
             assert!(self.snapshot_exists.read(snapshot_id), "Snapshot does not exist");
-            assert!(
-                self.is_snapshot_locked(snapshot_id),
-                "Snapshot must be locked before use"
-            );
+            assert!(self.is_snapshot_locked(snapshot_id), "Snapshot must be locked before use");
             self.tournament_snapshot.write(tournament_id, snapshot_id);
         }
 
-        fn add_entry(
+        fn on_entry_added(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) {
@@ -171,19 +183,21 @@ pub mod SnapshotValidator {
                 .write((tournament_id, player_address), used_entries + 1);
         }
 
-        fn remove_entry(
+        fn on_entry_removed(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) {
             let used_entries = self
                 .tournament_address_entries_used
                 .read((tournament_id, player_address));
-            assert!(used_entries > 0, "Snapshot Validator: No entries to remove");
-            self
-                .tournament_address_entries_used
-                .write((tournament_id, player_address), used_entries - 1);
+            if used_entries > 0 {
+                self
+                    .tournament_address_entries_used
+                    .write((tournament_id, player_address), used_entries - 1);
+            }
         }
     }
 
@@ -192,20 +206,16 @@ pub mod SnapshotValidator {
     #[abi(embed_v0)]
     impl SnapshotValidatorImpl of ISnapshotValidator<ContractState> {
         fn create_snapshot(ref self: ContractState) -> u64 {
-            // Generate new snapshot ID
             let current_snapshot_id = self.snapshot_id_counter.read();
             let new_snapshot_id = current_snapshot_id + 1;
             let caller = get_caller_address();
 
-            // Create new snapshot metadata
             let metadata = SnapshotMetadata { owner: caller, status: SnapshotStatus::Created };
 
-            // Store metadata and mark as existing
             self.snapshot_metadata.write(new_snapshot_id, metadata);
             self.snapshot_exists.write(new_snapshot_id, true);
             self.snapshot_id_counter.write(new_snapshot_id);
 
-            // Emit event
             self.emit(SnapshotCreated { snapshot_id: new_snapshot_id, owner: caller });
 
             new_snapshot_id
@@ -214,56 +224,46 @@ pub mod SnapshotValidator {
         fn upload_snapshot_data(
             ref self: ContractState, snapshot_id: u64, snapshot_values: Span<Entry>,
         ) {
-            // Check if snapshot exists
             assert!(self.snapshot_exists.read(snapshot_id), "Snapshot does not exist");
 
-            // Get metadata
             let mut metadata = self.snapshot_metadata.read(snapshot_id);
-
-            // Check if snapshot is locked
             assert!(metadata.status != SnapshotStatus::Locked, "Snapshot is locked");
 
-            // Check if caller is the owner
             let caller = get_caller_address();
             assert!(metadata.owner == caller, "Caller is not the owner");
 
-            // Upload the snapshot data
             let length = snapshot_values.len();
             let mut i: u32 = 0;
             while i < length {
                 let entry = *snapshot_values.at(i);
                 self.snapshot_entries.write((snapshot_id, entry.address), entry.count);
-                self.emit(SnapshotEntryAdded { snapshot_id, address: entry.address, count: entry.count });
+                self
+                    .emit(
+                        SnapshotEntryAdded {
+                            snapshot_id, address: entry.address, count: entry.count,
+                        },
+                    );
                 i += 1;
             }
 
-            // Update metadata
             metadata.status = SnapshotStatus::InProgress;
             self.snapshot_metadata.write(snapshot_id, metadata);
 
-            // Emit event
             self.emit(SnapshotDataUploaded { snapshot_id, entries_added: length })
         }
 
         fn lock_snapshot(ref self: ContractState, snapshot_id: u64) {
-            // Check if snapshot exists
             assert!(self.snapshot_exists.read(snapshot_id), "Snapshot does not exist");
 
-            // Get metadata
             let mut metadata = self.snapshot_metadata.read(snapshot_id);
-
-            // Check if snapshot is already locked
             assert!(metadata.status != SnapshotStatus::Locked, "Snapshot is already locked");
 
-            // Check if caller is the owner
             let caller = get_caller_address();
             assert!(metadata.owner == caller, "Caller is not the owner");
 
-            // Lock the snapshot
             metadata.status = SnapshotStatus::Locked;
             self.snapshot_metadata.write(snapshot_id, metadata);
 
-            // Emit event
             self.emit(SnapshotLocked { snapshot_id })
         }
 

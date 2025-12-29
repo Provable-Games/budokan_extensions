@@ -1,0 +1,24 @@
+# snfoundry.toml - Starknet Foundry configuration
+# See: https://foundry-rs.github.io/starknet-foundry/appendix/snfoundry-toml.html
+
+[sncast.default]
+account = "deployer"
+url = "https://api.cartridge.gg/x/starknet/sepolia"
+
+[sncast.sepolia]
+account = "deployer"
+url = "https://api.cartridge.gg/x/starknet/sepolia"
+
+[sncast.mainnet]
+account = "deployer"
+url = "https://api.cartridge.gg/x/starknet/mainnet"
+
+[[tool.snforge.fork]]
+name = "sepolia"
+url = "https://api.cartridge.gg/x/starknet/sepolia"
+block_id.tag = "latest"
+
+[[tool.snforge.fork]]
+name = "mainnet"
+url = "https://api.cartridge.gg/x/starknet/mainnet"
+block_id.tag = "latest"

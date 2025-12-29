@@ -7,9 +7,69 @@ version = "0.3.0"
 source = "git+https://github.com/lindy-labs/access_control.git?tag=v0.3.0#8fdfc97e15c4fb1b6cb1aa0da91d94e5956c3b1a"
 
 [[package]]
+name = "alexandria_bytes"
+version = "0.7.0"
+source = "git+https://github.com/keep-starknet-strange/alexandria.git?tag=v0.7.0#06e3019612cfcbbdb66cbd849840451ede7ee6aa"
+dependencies = [
+ "alexandria_data_structures",
+ "alexandria_math",
+]
+
+[[package]]
+name = "alexandria_data_structures"
+version = "0.7.0"
+source = "git+https://github.com/keep-starknet-strange/alexandria.git?tag=v0.7.0#06e3019612cfcbbdb66cbd849840451ede7ee6aa"
+
+[[package]]
+name = "alexandria_encoding"
+version = "0.7.0"
+source = "git+https://github.com/keep-starknet-strange/alexandria.git?tag=v0.7.0#06e3019612cfcbbdb66cbd849840451ede7ee6aa"
+dependencies = [
+ "alexandria_bytes",
+ "alexandria_data_structures",
+ "alexandria_math",
+ "alexandria_numeric",
+]
+
+[[package]]
+name = "alexandria_math"
+version = "0.7.0"
+source = "git+https://github.com/keep-starknet-strange/alexandria.git?tag=v0.7.0#06e3019612cfcbbdb66cbd849840451ede7ee6aa"
+
+[[package]]
+name = "alexandria_numeric"
+version = "0.7.0"
+source = "git+https://github.com/keep-starknet-strange/alexandria.git?tag=v0.7.0#06e3019612cfcbbdb66cbd849840451ede7ee6aa"
+dependencies = [
+ "alexandria_math",
+ "alexandria_searching",
+]
+
+[[package]]
+name = "alexandria_searching"
+version = "0.7.0"
+source = "git+https://github.com/keep-starknet-strange/alexandria.git?tag=v0.7.0#06e3019612cfcbbdb66cbd849840451ede7ee6aa"
+dependencies = [
+ "alexandria_data_structures",
+]
+
+[[package]]
+name = "budokan_entry_requirement"
+version = "0.0.1"
+source = "git+https://github.com/Provable-Games/budokan.git?branch=feat%2Fre-architecture#ecee85c6c7786df189f5faaf9d8f8e1c86ba7d28"
+dependencies = [
+ "budokan_interfaces",
+ "openzeppelin_interfaces",
+ "openzeppelin_introspection",
+]
+
+[[package]]
 name = "budokan_extensions"
 version = "0.1.0"
 dependencies = [
+ "budokan_entry_requirement",
+ "budokan_interfaces",
+ "game_components_minigame",
  "openzeppelin_access",
  "openzeppelin_governance",
  "openzeppelin_interfaces",
@@ -20,6 +80,82 @@ dependencies = [
  "snforge_std",
  "wadray",
 ]
+
+[[package]]
+name = "budokan_interfaces"
+version = "0.0.1"
+source = "git+https://github.com/Provable-Games/budokan.git?branch=feat%2Fre-architecture#ecee85c6c7786df189f5faaf9d8f8e1c86ba7d28"
+
+[[package]]
+name = "game_components_metagame"
+version = "1.5.1"
+source = "git+https://github.com/Provable-Games/game-components.git?branch=main#88c145062c59e2db0495f281ae2931531dfd5111"
+dependencies = [
+ "game_components_minigame",
+ "game_components_token",
+ "game_components_utils",
+ "openzeppelin_interfaces",
+ "openzeppelin_introspection",
+ "openzeppelin_token",
+]
+
+[[package]]
+name = "game_components_minigame"
+version = "1.5.1"
+source = "git+https://github.com/Provable-Games/game-components.git?branch=main#88c145062c59e2db0495f281ae2931531dfd5111"
+dependencies = [
+ "game_components_metagame",
+ "game_components_token",
+ "game_components_utils",
+ "openzeppelin_interfaces",
+ "openzeppelin_introspection",
+ "openzeppelin_token",
+]
+
+[[package]]
+name = "game_components_test_starknet"
+version = "1.5.1"
+source = "git+https://github.com/Provable-Games/game-components.git?branch=main#88c145062c59e2db0495f281ae2931531dfd5111"
+dependencies = [
+ "game_components_metagame",
+ "game_components_minigame",
+ "game_components_token",
+ "game_components_utils",
+ "openzeppelin_interfaces",
+ "openzeppelin_introspection",
+ "openzeppelin_token",
+]
+
+[[package]]
+name = "game_components_token"
+version = "1.5.1"
+source = "git+https://github.com/Provable-Games/game-components.git?branch=main#88c145062c59e2db0495f281ae2931531dfd5111"
+dependencies = [
+ "game_components_metagame",
+ "game_components_minigame",
+ "game_components_test_starknet",
+ "game_components_utils",
+ "openzeppelin_interfaces",
+ "openzeppelin_introspection",
+ "openzeppelin_token",
+]
+
+[[package]]
+name = "game_components_utils"
+version = "1.5.1"
+source = "git+https://github.com/Provable-Games/game-components.git?branch=main#88c145062c59e2db0495f281ae2931531dfd5111"
+dependencies = [
+ "alexandria_encoding",
+ "game_components_metagame",
+ "game_components_minigame",
+ "game_components_token",
+ "graffiti",
+]
+
+[[package]]
+name = "graffiti"
+version = "0.1.0"
+source = "git+https://github.com/ponderingdemocritus/graffiti?rev=bc569531791dbc71c6cd8d9bc154c34eedad31fe#bc569531791dbc71c6cd8d9bc154c34eedad31fe"
 
 [[package]]
 name = "openzeppelin_access"

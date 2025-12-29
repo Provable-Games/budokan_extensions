@@ -1,11 +1,10 @@
 #[starknet::contract]
 pub mod open_entry_validator_mock {
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent::EntryValidator;
     use openzeppelin_introspection::src5::SRC5Component;
     use starknet::ContractAddress;
     use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
-
 
     component!(path: EntryValidatorComponent, storage: entry_validator, event: EntryValidatorEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -38,12 +37,12 @@ pub mod open_entry_validator_mock {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, tournament_address: ContractAddress) {
-        self.entry_validator.initializer(tournament_address, false);
+    fn constructor(ref self: ContractState, budokan_address: ContractAddress) {
+        // Open validator: once registered, entry is always valid (registration_only = true)
+        self.entry_validator.initializer(budokan_address, true);
     }
 
-    // Implement the EntryValidator trait - always returns true (open to everyone)
-    impl OpenEntryValidatorImpl of EntryValidator<ContractState> {
+    impl EntryValidatorImplInternal of EntryValidator<ContractState> {
         fn validate_entry(
             self: @ContractState,
             tournament_id: u64,
@@ -52,6 +51,17 @@ pub mod open_entry_validator_mock {
         ) -> bool {
             // Open validator: everyone can enter regardless of tournament
             true
+        }
+
+        fn should_ban_entry(
+            self: @ContractState,
+            tournament_id: u64,
+            game_token_id: u64,
+            current_owner: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> bool {
+            // Never ban open entries
+            false
         }
 
         fn entries_left(
@@ -76,9 +86,10 @@ pub mod open_entry_validator_mock {
             self.tournament_entry_limit.write(tournament_id, entry_limit);
         }
 
-        fn add_entry(
+        fn on_entry_added(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) {
@@ -87,16 +98,18 @@ pub mod open_entry_validator_mock {
             self.tournament_entries.write(key, current_entries + 1);
         }
 
-        fn remove_entry(
+        fn on_entry_removed(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) {
             let key = (tournament_id, player_address);
             let current_entries = self.tournament_entries.read(key);
-            assert!(current_entries > 0, "Open Entry Validator: No entries to remove");
-            self.tournament_entries.write(key, current_entries - 1);
+            if current_entries > 0 {
+                self.tournament_entries.write(key, current_entries - 1);
+            }
         }
     }
 }

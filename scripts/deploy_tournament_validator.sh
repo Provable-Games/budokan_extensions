@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Snapshot Validator Deployment Script
-# Deploys the SnapshotValidator contract to Starknet
+# Tournament Validator Deployment Script
+# Deploys the TournamentValidator contract to Starknet
 
 set -euo pipefail
 
@@ -34,7 +34,6 @@ print_warning() {
 }
 
 # Check deployment environment
-REGISTRATION_ONLY="${REGISTRATION_ONLY:-false}"
 STARKNET_NETWORK="${STARKNET_NETWORK:-default}"
 
 # Map network to sncast profile
@@ -59,7 +58,6 @@ missing_vars=()
 
 # Debug output for environment variables
 print_info "Environment variables loaded:"
-echo "  REGISTRATION_ONLY: $REGISTRATION_ONLY"
 echo "  STARKNET_NETWORK: $STARKNET_NETWORK"
 echo "  SNCAST_PROFILE: $SNCAST_PROFILE"
 echo "  STARKNET_RPC: ${STARKNET_RPC:-<from profile>}"
@@ -94,7 +92,6 @@ print_info "Deployment Configuration:"
 echo "  Network: $STARKNET_NETWORK"
 echo "  Profile: $SNCAST_PROFILE"
 echo "  RPC: ${STARKNET_RPC:-<from profile>}"
-echo "  Registration Only: $REGISTRATION_ONLY"
 echo ""
 
 # Confirm deployment
@@ -115,9 +112,9 @@ print_info "Building contracts..."
 cd "$SCRIPT_DIR/.."
 scarb build
 
-if [ ! -f "target/dev/budokan_extensions_SnapshotValidator.contract_class.json" ]; then
-    print_error "SnapshotValidator contract build failed or contract file not found"
-    print_error "Expected: target/dev/budokan_extensions_SnapshotValidator.contract_class.json"
+if [ ! -f "target/dev/budokan_extensions_TournamentValidator.contract_class.json" ]; then
+    print_error "TournamentValidator contract build failed or contract file not found"
+    print_error "Expected: target/dev/budokan_extensions_TournamentValidator.contract_class.json"
     echo "Available contract files:"
     ls -la target/dev/*.contract_class.json 2>/dev/null || echo "No contract files found"
     exit 1
@@ -129,7 +126,7 @@ fi
 
 print_info "Calculating class hash from artifact..."
 CLASS_HASH_OUTPUT=$(sncast --profile $SNCAST_PROFILE utils class-hash \
-    --contract-name SnapshotValidator \
+    --contract-name TournamentValidator \
     --package budokan_extensions 2>&1)
 CLASS_HASH=$(echo "$CLASS_HASH_OUTPUT" | grep -oE '0x[0-9a-fA-F]+' | head -1)
 
@@ -141,14 +138,14 @@ fi
 print_info "Class hash: $CLASS_HASH"
 
 # ============================
-# DECLARE SNAPSHOT VALIDATOR
+# DECLARE TOURNAMENT VALIDATOR
 # ============================
 
-print_info "Declaring SnapshotValidator contract..."
+print_info "Declaring TournamentValidator contract..."
 
 DECLARE_OUTPUT=$(sncast --profile $SNCAST_PROFILE declare \
     $URL_FLAG \
-    --contract-name SnapshotValidator \
+    --contract-name TournamentValidator \
     --package budokan_extensions \
     2>&1) || true
 
@@ -170,21 +167,14 @@ else
 fi
 
 # ============================
-# DEPLOY SNAPSHOT VALIDATOR
+# DEPLOY TOURNAMENT VALIDATOR
 # ============================
 
-print_info "Deploying SnapshotValidator contract..."
+print_info "Deploying TournamentValidator contract..."
 
-# Constructor parameters: budokan_address, registration_only
+# Constructor parameters: budokan_address
 print_info "Using BUDOKAN_ADDRESS: $BUDOKAN_ADDRESS"
-print_info "Using REGISTRATION_ONLY: $REGISTRATION_ONLY"
-
-# Convert REGISTRATION_ONLY to felt252 (0 or 1)
-if [ "$REGISTRATION_ONLY" = "true" ]; then
-    REGISTRATION_ONLY_FELT="1"
-else
-    REGISTRATION_ONLY_FELT="0"
-fi
+print_info "Note: TournamentValidator always uses registration_only=true (hard-coded)"
 
 # Retry deployment up to 3 times
 MAX_RETRIES=3
@@ -202,7 +192,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ -z "$CONTRACT_ADDRESS" ]; do
     DEPLOY_OUTPUT=$(sncast --profile $SNCAST_PROFILE deploy \
         $URL_FLAG \
         --class-hash "$CLASS_HASH" \
-        --constructor-calldata "$BUDOKAN_ADDRESS" "$REGISTRATION_ONLY_FELT" \
+        --constructor-calldata "$BUDOKAN_ADDRESS" \
         2>&1) || true
 
     # Extract contract address from output
@@ -221,13 +211,13 @@ if [ -z "$CONTRACT_ADDRESS" ]; then
     exit 1
 fi
 
-print_info "SnapshotValidator contract deployed at address: $CONTRACT_ADDRESS"
+print_info "TournamentValidator contract deployed at address: $CONTRACT_ADDRESS"
 
 # ============================
 # SAVE DEPLOYMENT INFO
 # ============================
 
-DEPLOYMENT_FILE="deployments/snapshot_validator_$(date +%Y%m%d_%H%M%S).json"
+DEPLOYMENT_FILE="deployments/tournament_validator_$(date +%Y%m%d_%H%M%S).json"
 mkdir -p deployments
 
 cat > "$DEPLOYMENT_FILE" << EOF
@@ -235,11 +225,11 @@ cat > "$DEPLOYMENT_FILE" << EOF
   "network": "$STARKNET_NETWORK",
   "profile": "$SNCAST_PROFILE",
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "snapshot_validator": {
+  "tournament_validator": {
     "address": "$CONTRACT_ADDRESS",
     "class_hash": "$CLASS_HASH",
-    "description": "Snapshot-based entry validator with tournament-specific snapshot management",
-    "registration_only": $REGISTRATION_ONLY
+    "description": "Tournament-based entry validator - validates based on participation/winning in qualifying tournaments",
+    "registration_only": true
   }
 }
 EOF
@@ -253,33 +243,48 @@ print_info "Deployment info saved to: $DEPLOYMENT_FILE"
 echo
 print_info "=== DEPLOYMENT SUCCESSFUL ==="
 echo
-echo "Snapshot Validator Contract:"
+echo "Tournament Validator Contract:"
 echo "  Address: $CONTRACT_ADDRESS"
 echo "  Class Hash: $CLASS_HASH"
-echo "  Registration Only: $REGISTRATION_ONLY"
+echo "  Registration Only: true (hard-coded)"
 echo ""
 
 echo "Next steps:"
 echo "1. Verify the contract on Starkscan/Voyager"
-echo "2. Create a snapshot using create_snapshot()"
-echo "3. Upload snapshot data using upload_snapshot_data()"
-echo "4. Lock the snapshot using lock_snapshot()"
-echo "5. Configure tournaments to use the snapshot via add_config()"
+echo "2. Configure tournament qualification rules using add_config():"
+echo "   - Set qualifier_type (0 = participants, 1 = winners)"
+echo "   - Add qualifying tournament IDs"
+echo "3. Integrate with your tournament creation flow"
 echo ""
 
 echo "To interact with the contract:"
-echo "  export SNAPSHOT_VALIDATOR=$CONTRACT_ADDRESS"
+echo "  export TOURNAMENT_VALIDATOR=$CONTRACT_ADDRESS"
 echo ""
 
-echo "Example: Create a snapshot:"
+echo "Example: Configure for participant-based qualification:"
 echo "  sncast --profile $SNCAST_PROFILE --url \$STARKNET_RPC invoke \\"
-echo "    --contract-address \$SNAPSHOT_VALIDATOR \\"
-echo "    --function create_snapshot"
+echo "    --contract-address \$TOURNAMENT_VALIDATOR \\"
+echo "    --function add_config \\"
+echo "    --calldata <tournament_id> <entry_limit> 0 <qualifying_tournament_id_1> <qualifying_tournament_id_2>"
 echo ""
 
-echo "Example: Check snapshot metadata:"
+echo "Example: Configure for winner-based qualification:"
+echo "  sncast --profile $SNCAST_PROFILE --url \$STARKNET_RPC invoke \\"
+echo "    --contract-address \$TOURNAMENT_VALIDATOR \\"
+echo "    --function add_config \\"
+echo "    --calldata <tournament_id> <entry_limit> 1 <qualifying_tournament_id_1> <qualifying_tournament_id_2>"
+echo ""
+
+echo "Example: Test entry validation (participant-based):"
 echo "  sncast --profile $SNCAST_PROFILE --url \$STARKNET_RPC call \\"
-echo "    --contract-address \$SNAPSHOT_VALIDATOR \\"
-echo "    --function get_snapshot_metadata \\"
-echo "    --calldata <snapshot_id>"
+echo "    --contract-address \$TOURNAMENT_VALIDATOR \\"
+echo "    --function valid_entry \\"
+echo "    --calldata <tournament_id> <player_address> <qualifying_tournament_id> <token_id>"
+echo ""
+
+echo "Example: Test entry validation (winner-based):"
+echo "  sncast --profile $SNCAST_PROFILE --url \$STARKNET_RPC call \\"
+echo "    --contract-address \$TOURNAMENT_VALIDATOR \\"
+echo "    --function valid_entry \\"
+echo "    --calldata <tournament_id> <player_address> <qualifying_tournament_id> <token_id> <leaderboard_position>"
 echo ""

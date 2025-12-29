@@ -47,9 +47,9 @@ use game_components_test_starknet::minigame::mocks::minigame_starknet_mock::{
 use game_components_token::interface::{
     IMinigameTokenMixinDispatcher, IMinigameTokenMixinDispatcherTrait,
 };
+use openzeppelin_interfaces::erc721::{IERC721Dispatcher, IERC721DispatcherTrait};
 use openzeppelin_introspection::interface::{ISRC5Dispatcher, ISRC5DispatcherTrait};
 use openzeppelin_token::erc721::ERC721Component::{Approval, Transfer};
-use openzeppelin_interfaces::erc721::{IERC721Dispatcher, IERC721DispatcherTrait};
 use starknet::{ContractAddress, get_block_timestamp, testing};
 
 #[derive(Drop)]

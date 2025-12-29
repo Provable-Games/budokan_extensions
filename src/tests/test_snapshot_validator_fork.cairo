@@ -48,7 +48,7 @@ fn deploy_snapshot_validator(tournament_address: ContractAddress) -> ContractAdd
 // ==============================================
 
 #[test]
-#[fork("mainnet")]
+#[fork("sepolia")]
 fn test_snapshot_validator_fork_deploy() {
     // Test that we can deploy the SnapshotValidator on a forked network
     let tournament_address = budokan_address();
@@ -64,7 +64,7 @@ fn test_snapshot_validator_fork_deploy() {
 }
 
 #[test]
-#[fork("mainnet")]
+#[fork("sepolia")]
 fn test_snapshot_validator_fork_insert_snapshots() {
     // Deploy validator
     let tournament_address = budokan_address();
@@ -77,8 +77,7 @@ fn test_snapshot_validator_fork_insert_snapshots() {
     let player3: ContractAddress = 0x333.try_into().unwrap();
 
     let snapshots = array![
-        Snapshot { address: player1, entries: 3 },
-        Snapshot { address: player2, entries: 5 },
+        Snapshot { address: player1, entries: 3 }, Snapshot { address: player2, entries: 5 },
         Snapshot { address: player3, entries: 1 },
     ];
 
@@ -92,7 +91,7 @@ fn test_snapshot_validator_fork_insert_snapshots() {
 }
 
 #[test]
-#[fork("mainnet")]
+#[fork("sepolia")]
 fn test_snapshot_validator_fork_validate_entry() {
     // Deploy validator
     let tournament_address = budokan_address();
@@ -121,7 +120,7 @@ fn test_snapshot_validator_fork_validate_entry() {
 }
 
 #[test]
-#[fork("mainnet")]
+#[fork("sepolia")]
 fn test_snapshot_validator_fork_entries_left() {
     // Deploy validator
     let tournament_address = budokan_address();
@@ -143,7 +142,7 @@ fn test_snapshot_validator_fork_entries_left() {
 }
 
 #[test]
-#[fork("mainnet")]
+#[fork("sepolia")]
 fn test_snapshot_validator_fork_add_entry() {
     // Deploy validator
     let tournament_address = budokan_address();
@@ -165,7 +164,7 @@ fn test_snapshot_validator_fork_add_entry() {
     // Simulate adding an entry (normally called by budokan contract)
     // We need to cheat the caller to be the budokan address
     start_cheat_caller_address(validator_address, tournament_address);
-    entry_validator.add_entry(tournament_id, player, array![].span());
+    entry_validator.add_entry(tournament_id, 0, player, array![].span());
     stop_cheat_caller_address(validator_address);
 
     // After adding entry, should have 2 left
@@ -174,7 +173,7 @@ fn test_snapshot_validator_fork_add_entry() {
 
     // Add another entry
     start_cheat_caller_address(validator_address, tournament_address);
-    entry_validator.add_entry(tournament_id, player, array![].span());
+    entry_validator.add_entry(tournament_id, 0, player, array![].span());
     stop_cheat_caller_address(validator_address);
 
     // Should have 1 left
@@ -183,7 +182,7 @@ fn test_snapshot_validator_fork_add_entry() {
 }
 
 #[test]
-#[fork("mainnet")]
+#[fork("sepolia")]
 fn test_snapshot_validator_fork_multiple_tournaments() {
     // Deploy validator
     let tournament_address = budokan_address();
@@ -202,8 +201,8 @@ fn test_snapshot_validator_fork_multiple_tournaments() {
 
     // Add entries to tournament 1
     start_cheat_caller_address(validator_address, tournament_address);
-    entry_validator.add_entry(tournament_1, player, array![].span());
-    entry_validator.add_entry(tournament_1, player, array![].span());
+    entry_validator.add_entry(tournament_1, 0, player, array![].span());
+    entry_validator.add_entry(tournament_1, 0, player, array![].span());
     stop_cheat_caller_address(validator_address);
 
     // Check remaining entries for tournament 1 (should be 3)
@@ -212,7 +211,7 @@ fn test_snapshot_validator_fork_multiple_tournaments() {
 
     // Add entries to tournament 2
     start_cheat_caller_address(validator_address, tournament_address);
-    entry_validator.add_entry(tournament_2, player, array![].span());
+    entry_validator.add_entry(tournament_2, 0, player, array![].span());
     stop_cheat_caller_address(validator_address);
 
     // Check remaining entries for tournament 2 (should be 4 - only 1 used in this tournament)
@@ -225,7 +224,7 @@ fn test_snapshot_validator_fork_multiple_tournaments() {
 }
 
 #[test]
-#[fork("mainnet")]
+#[fork("sepolia")]
 fn test_snapshot_validator_fork_large_snapshot_batch() {
     // Deploy validator
     let tournament_address = budokan_address();
@@ -257,7 +256,7 @@ fn test_snapshot_validator_fork_large_snapshot_batch() {
 }
 
 #[test]
-#[fork("mainnet")]
+#[fork("sepolia")]
 fn test_snapshot_validator_fork_overwrite_entries() {
     // Deploy validator
     let tournament_address = budokan_address();
@@ -290,7 +289,7 @@ fn test_snapshot_validator_fork_overwrite_entries() {
 // You may need to adjust this based on the actual Budokan interface
 
 #[test]
-#[fork("mainnet")]
+#[fork("sepolia")]
 #[ignore] // Remove this attribute when you have the actual Budokan interface available
 fn test_snapshot_validator_fork_budokan_integration() {
     // Deploy validator

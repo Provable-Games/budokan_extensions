@@ -13,6 +13,9 @@ openzeppelin_access = { git = "https://github.com/OpenZeppelin/cairo-contracts.g
 openzeppelin_interfaces = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", tag = "v3.0.0-alpha.3" }
 opus = { git = "https://github.com/lindy-labs/opus_contracts", tag = "v1.1.0" }
 wadray = { git = "https://github.com/lindy-labs/wadray.git", tag = "v0.3.0" }
+budokan_interfaces = { git = "https://github.com/Provable-Games/budokan.git", branch = "feat/re-architecture" }
+budokan_entry_requirement = { git = "https://github.com/Provable-Games/budokan.git", branch = "feat/re-architecture" }
+game_components_minigame = { git = "https://github.com/Provable-Games/game-components.git", branch = "main"}
 
 [tool.snforge]
 # exit_first = true

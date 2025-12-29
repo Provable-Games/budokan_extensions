@@ -7,6 +7,7 @@ pub struct Entry {
 }
 
 #[derive(Copy, Drop, Serde, starknet::Store, PartialEq)]
+#[allow(starknet::store_no_default_variant)]
 pub enum SnapshotStatus {
     Created,
     InProgress,
@@ -31,8 +32,8 @@ pub trait ISnapshotValidator<TState> {
 
 #[starknet::contract]
 pub mod SnapshotValidator {
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent::EntryValidator;
     use openzeppelin_introspection::src5::SRC5Component;
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
@@ -58,7 +59,7 @@ pub mod SnapshotValidator {
         entry_validator: EntryValidatorComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
-        // New snapshot ID-based storage
+        // Snapshot ID-based storage
         snapshot_metadata: Map<u64, SnapshotMetadata>,
         snapshot_entries: Map<(u64, ContractAddress), u8>,
         snapshot_exists: Map<u64, bool>,
@@ -78,6 +79,8 @@ pub mod SnapshotValidator {
         SnapshotEntryAdded: SnapshotEntryAdded,
         SnapshotDataUploaded: SnapshotDataUploaded,
         SnapshotLocked: SnapshotLocked,
+        ConfigAdded: ConfigAdded,
+        EntryRecorded: EntryRecorded,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -96,7 +99,6 @@ pub mod SnapshotValidator {
         count: u8,
     }
 
-
     #[derive(Drop, starknet::Event)]
     struct SnapshotDataUploaded {
         #[key]
@@ -110,12 +112,26 @@ pub mod SnapshotValidator {
         snapshot_id: u64,
     }
 
-    #[constructor]
-    fn constructor(ref self: ContractState, tournament_address: ContractAddress) {
-        self.entry_validator.initializer(tournament_address);
+    #[derive(Drop, starknet::Event)]
+    struct ConfigAdded {
+        tournament_id: u64,
+        snapshot_id: u64,
     }
 
-    // Implement the EntryValidator trait for the contract
+    #[derive(Drop, starknet::Event)]
+    struct EntryRecorded {
+        tournament_id: u64,
+        player: ContractAddress,
+        entries_used: u8,
+    }
+
+    #[constructor]
+    fn constructor(ref self: ContractState, budokan_address: ContractAddress) {
+        // Snapshot is a point-in-time check, so we only validate at registration
+        // Once registered, the entry remains valid (registration_only = true)
+        self.entry_validator.initializer(budokan_address, true);
+    }
+
     impl EntryValidatorImplInternal of EntryValidator<ContractState> {
         fn validate_entry(
             self: @ContractState,
@@ -126,6 +142,19 @@ pub mod SnapshotValidator {
             let snapshot_id = self.tournament_snapshot.read(tournament_id);
             let address_entries = self.snapshot_entries.read((snapshot_id, player_address));
             address_entries > 0
+        }
+
+        /// Snapshot entries should never be banned after registration
+        /// The snapshot represents a point-in-time qualification that doesn't change
+        fn should_ban_entry(
+            self: @ContractState,
+            tournament_id: u64,
+            game_token_id: u64,
+            current_owner: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> bool {
+            // Never ban snapshot entries - they were valid at registration time
+            false
         }
 
         fn entries_left(
@@ -149,16 +178,16 @@ pub mod SnapshotValidator {
             let snapshot_id_felt = *config.at(0);
             let snapshot_id: u64 = snapshot_id_felt.try_into().unwrap();
             assert!(self.snapshot_exists.read(snapshot_id), "Snapshot does not exist");
-            assert!(
-                self.is_snapshot_locked(snapshot_id),
-                "Snapshot must be locked before use"
-            );
+            assert!(self.is_snapshot_locked(snapshot_id), "Snapshot must be locked before use");
             self.tournament_snapshot.write(tournament_id, snapshot_id);
+
+            self.emit(ConfigAdded { tournament_id, snapshot_id });
         }
 
-        fn add_entry(
+        fn on_entry_added(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) {
@@ -168,21 +197,30 @@ pub mod SnapshotValidator {
             self
                 .tournament_address_entries_used
                 .write((tournament_id, player_address), used_entries + 1);
+
+            self
+                .emit(
+                    EntryRecorded {
+                        tournament_id, player: player_address, entries_used: used_entries + 1,
+                    },
+                );
         }
 
-        fn remove_entry(
+        fn on_entry_removed(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
         ) {
             let used_entries = self
                 .tournament_address_entries_used
                 .read((tournament_id, player_address));
-            assert!(used_entries > 0, "Snapshot Validator: No entries to remove");
-            self
-                .tournament_address_entries_used
-                .write((tournament_id, player_address), used_entries - 1);
+            if used_entries > 0 {
+                self
+                    .tournament_address_entries_used
+                    .write((tournament_id, player_address), used_entries - 1);
+            }
         }
     }
 
@@ -232,7 +270,12 @@ pub mod SnapshotValidator {
             while i < length {
                 let entry = *snapshot_values.at(i);
                 self.snapshot_entries.write((snapshot_id, entry.address), entry.count);
-                self.emit(SnapshotEntryAdded { snapshot_id, address: entry.address, count: entry.count });
+                self
+                    .emit(
+                        SnapshotEntryAdded {
+                            snapshot_id, address: entry.address, count: entry.count,
+                        },
+                    );
                 i += 1;
             }
 

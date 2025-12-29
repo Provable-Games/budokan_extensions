@@ -7,11 +7,11 @@ pub trait IEntryValidatorMock<TState> {
 
 #[starknet::contract]
 pub mod entry_validator_mock {
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent;
-    use budokan_extensions::entry_validator::entry_validator::EntryValidatorComponent::EntryValidator;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent;
+    use budokan_entry_requirement::entry_validator::EntryValidatorComponent::EntryValidator;
     use core::num::traits::Zero;
-    use openzeppelin_introspection::src5::SRC5Component;
     use openzeppelin_interfaces::erc721::{IERC721Dispatcher, IERC721DispatcherTrait};
+    use openzeppelin_introspection::src5::SRC5Component;
     use starknet::ContractAddress;
     use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
 
@@ -45,11 +45,11 @@ pub mod entry_validator_mock {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, tournament_address: ContractAddress) {
-        self.entry_validator.initializer(tournament_address, false);
+    fn constructor(ref self: ContractState, budokan_address: ContractAddress) {
+        // ERC721 ownership can change, so allow banning (registration_only = false)
+        self.entry_validator.initializer(budokan_address, false);
     }
 
-    // Implement the EntryValidator trait for the contract
     impl EntryValidatorImplInternal of EntryValidator<ContractState> {
         fn validate_entry(
             self: @ContractState,
@@ -71,6 +71,24 @@ pub mod entry_validator_mock {
             balance > 0
         }
 
+        fn should_ban_entry(
+            self: @ContractState,
+            tournament_id: u64,
+            game_token_id: u64,
+            current_owner: ContractAddress,
+            qualification: Span<felt252>,
+        ) -> bool {
+            // Ban if player no longer owns the ERC721 token
+            let erc721_address = self.tournament_erc721_address.read(tournament_id);
+            if erc721_address.is_zero() {
+                return false;
+            }
+
+            let erc721 = IERC721Dispatcher { contract_address: erc721_address };
+            let balance = erc721.balance_of(current_owner);
+            balance == 0
+        }
+
         fn entries_left(
             self: @ContractState,
             tournament_id: u64,
@@ -89,20 +107,22 @@ pub mod entry_validator_mock {
             self.tournament_erc721_address.write(tournament_id, erc721_address);
         }
 
-        fn add_entry(
+        fn on_entry_added(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
-        ) { // No specific action needed for this mock on add_entry
+        ) { // No specific action needed for this mock
         }
 
-        fn remove_entry(
+        fn on_entry_removed(
             ref self: ContractState,
             tournament_id: u64,
+            game_token_id: u64,
             player_address: ContractAddress,
             qualification: Span<felt252>,
-        ) { // No specific action needed for this mock on remove_entry
+        ) { // No specific action needed for this mock
         }
     }
 
